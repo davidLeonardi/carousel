@@ -327,16 +327,16 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
 		//	setName: name of the image set
 		
 		var dataItem = {
-            id: currentID,
-			setName: setName,
-            index: this._createIncrementalIndexBySet(setName),
-            imageSrc: currentNode.src,
+            id: oArgs.currentID,
+			setName: oArgs.setName,
+            index: this._createIncrementalIndexBySet(oArgs.setName),
+            imageSrc: oArgs.currentNode.src,
             imageIsLoaded: true,
-            imageNodeId: currentID,
-            imageNode: currentNode,
+            imageNodeId: oArgs.currentID,
+            imageNode: oArgs.currentNode,
             metaData: {}
         };
-        dojo.forEach(metaDataNodes, function(metaDataNode, metaDataIndex) {
+        dojo.forEach(oArgs.metaDataNodes, function(metaDataNode, metaDataIndex) {
             var _keyName = dojo.attr(metaDataNode, "data-carousel-meta-type");
 			dataItem.metaData[_keyName] = dojo.string.trim(metaDataNode.innerHTML);
         }, this);
