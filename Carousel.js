@@ -12,12 +12,13 @@ dojo.require("dojo.string");
 
 
 dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
+    debuggingMode : true,
 
     //css3 selector to determine the child nodes which will be used
-    childImageQuery: "div.carouselImage img",
+    childItemQuery: ">",
 
     //css3 selector to determine the child nodes which will be used
-    childImageMetadataQuery: "[data-carousel-meta-type]",
+    childItemMetadataQuery: "[data-carousel-meta-type]",
 
     //RESOURCE INTENSIVE! monitor parent domNode and detect size changes
     //Full disclosure: useful when this widget is used within resizable domNodes
@@ -45,12 +46,14 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
     _incrementalId: 0,
 
 
-    constructor: function() {
+    constructor: function () {
+    if(this.debuggingMode){console.debug("constructor");}
         this._incrementalIndexBySet = {};
         this.inherited(arguments);
     },
 
-    startup: function() {
+    startup: function () {
+        if(this.debuggingMode){console.debug("startup");}
         //once the dom is parsed and the template is rendered, do something with it.
         if (this._started) {
             return;
@@ -61,91 +64,102 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
 
     },
 
-    getCurrentSet: function() {
+    getCurrentSet: function () {
+        if(this.debuggingMode){console.debug("getCurrentSet");}
         //public function to return current name of set
-        return (this._imageSetStoreQuery.setName);
+        return (this._itemSetStoreQuery.setName);
     },
 
-    getCurrentIndex: function() {
-        //public function to return current image index
+    getCurrentIndex: function () {
+        if(this.debuggingMode){console.debug("getCurrentIndex");}
+        //public function to return current item index
         return (this._currentIndex);
     },
 
-    getCurrentImageDataItem: function() {
-        //public function to return info about the current image.
-        return (this._currentImageDataItem);
+    getCurrentItemDataItem: function () {
+        if(this.debuggingMode){console.debug("getCurrentItemDataItem");}
+        //public function to return info about the current item.
+        return (this._currentItemDataItem);
     },
 
 
-    getCurrentImages: function() {
-        //public function to return current images in the current set
-        return (this._internalDataStore.query(this._imageSetStoreQuery));
+    getCurrentItems: function () {
+        if(this.debuggingMode){console.debug("getCurrentItems");}
+        //public function to return current items in the current set
+        return (this._internalDataStore.query(this._itemSetStoreQuery));
     },
 
-    getSets: function() {
+    getSets: function () {
+        if(this.debuggingMode){console.debug("getSets");}
         //public function to return [] of available set names
         var items = [];
         dojo.forEach(this._internalDataStore.query(),
-        function(item) {
-            items.push(item.setName)
-        });
+            function (item) {
+                items.push(item.setName);
+            });
         items.sort();
         var j = 0;
-        var imageSets = [];
-        for (var i = 0; i < items.length; i++) {
-            imageSets[j] = items[i];
+        var itemSets = [];
+        var i;
+        for (i = 0; i < items.length; i++) {
+            itemSets[j] = items[i];
             j++;
-            if ((i > 0) && (items[i] == items[i - 1])) {
-                imageSets.pop();
-                j--
+            if ((i > 0) && (items[i] === items[i - 1])) {
+                itemSets.pop();
+                j--;
             }
         }
-        return (imageSets);
+        return (itemSets);
     },
 
-    getImagesBySet: function(setName) {
-        //public function to return all images within a specified set
+    getItemsBySet: function (setName) {
+        if(this.debuggingMode){console.debug("getItemsBySet");}
+        //public function to return all items within a specified set
         return (this._internalDataStore.query({
             setName: setName
         }));
     },
 
-    getImageBySetAndIndex: function(setName, index) {
-        //public function to return an [] containing a specific image by index and set
+    getItemBySetAndIndex: function (setName, index) {
+        if(this.debuggingMode){console.debug("getItemBySetAndIndex");}
+        //public function to return an [] containing a specific item by index and set
         return this._internalDataStore.query({
             setName: setName,
             index: index
         });
     },
 
-    getCurrentMetaData: function() {
+    getCurrentMetaData: function () {
+        if(this.debuggingMode){console.debug("getCurrentMetaData");}
         //public function to return the metadata object for the current dataItem
-        return (this._currentImageDataItem.metaData)
+        return (this._currentItemDataItem.metaData);
     },
 
-    getImageDataItemByIndex: function(index) {
+    getItemDataItemByIndex: function (index) {
+        if(this.debuggingMode){console.debug("getItemDataItemByIndex");}
         //returns a data item from the store by an index key query
         return this._internalDataStore.query(dojo.mixin({
             index: index
         },
-        this._imageSetStoreQuery))[0];
+        this._itemSetStoreQuery))[0];
     },
 
-    applyImageSet: function(oArgs) {
-        //public function to apply an image set.
-        //  oArgs:
-        //      setName : string. name of the imageSet
-        //      indexStart: When autoshowing, show image at index specified
-        //      disableAutoShow: boolean. if true disables automatically showing the first image
-        //
+    useSet: function (oArgs) {
+        if(this.debuggingMode){console.debug("useSet");}
+        //public function to apply an items set.
+        // 	oArgs:
+        // 		setName : string. name of the itemSet
+        //		indexStart: When autoshowing, show item at index specified
+        // 		disableAutoShow: boolean. if true disables automatically showing the first item
+        //		
         //do nothing if we're switching to the current set
-        if ((this._imageSetStoreQuery) && (this._imageSetStoreQuery.setName == oArgs.setName)) {
-            return
+        if ((this._itemSetStoreQuery) && (this._itemSetStoreQuery.setName === oArgs.setName)) {
+            return;
         }
 
         oArgs.setName = oArgs.setName || this.defaultSet;
 
-        this._imageSetStoreQuery = {
+        this._itemSetStoreQuery = {
             setName: oArgs.setName
         };
 
@@ -153,11 +167,12 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
             this.showIndex(oArgs.indexStart || 1);
         }
 
-        this.onImageSetChange();
+        this.onItemSetChange();
 
     },
 
-    addData: function(oArgs) {
+    addData: function (oArgs) {
+        if(this.debuggingMode){console.debug("addData");}
         //Public function to add data to the widget.
         //oArgs: an object in the form of {node: domNode}, {store: "storeId"} or {url: "URL"}
         //DataItems will be added to the end of the list.
@@ -174,48 +189,49 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
 
     },
 
-    showIndex: function(index) {
-        //public function to show an image at index X
+    showIndex: function (index) {
+        if(this.debuggingMode){console.debug("showIndex");}
+        //public function to show an item at index X
         // possibly rename to setIndex
         //todo: break this up, its batshit ugly and overbloated and unflexible and i fucking hate it.
-        this._nextImageDataItem = this.getImageDataItemByIndex(index);
-        var nextImageNode = dojo.byId(this._nextImageDataItem.imageNodeId);
-        if (this._currentImageDataItem) {
-            var currentImageNode = dojo.byId(this._currentImageDataItem.imageNodeId);
+        this._nextItemDataItem = this.getItemDataItemByIndex(index);
+        var nextItemNode = dojo.byId(this._nextItemDataItem.itemNodeId);
+        if (this._currentItemDataItem) {
+            var currentItemNode = dojo.byId(this._currentItemDataItem.itemNodeId);
         }
 
 
-        //don't do anything if we're requesting the same image as currently displayed
-        if (this._currentImageDataItem && (this._currentImageDataItem === this._nextImageDataItem)) {
+        //don't do anything if we're requesting the same item as currently displayed
+        if (this._currentItemDataItem && (this._currentItemDataItem === this._nextItemDataItem)) {
             return;
         }
 
-        if (!this._nextImageDataItem.imageIsLoaded) {
-            //not implemented yet: _loadImage
+        if (!this._nextItemDataItem.itemIsLoaded) {
+            //not implemented yet: _loadItem
             }
 
-        if (this._currentImageDataItem) {
-            this._currentImageDataItem.active = false;
-            this._putItemtoStore(this._currentImageDataItem);
+        if (this._currentItemDataItem) {
+            this._currentItemDataItem.active = false;
+            this._putItemtoStore(this._currentItemDataItem);
         }
 
 
-        if (currentImageNode) {
-            dojo.style(nextImageNode, {
+        if (currentItemNode) {
+            dojo.style(nextItemNode, {
                 display: "block",
                 position: "absolute",
                 left: 0,
                 top: 0
             });
-            dojo.style(currentImageNode, {
+            dojo.style(currentItemNode, {
                 opacity: 0,
                 display: "none"
             });
-            dojo.style(nextImageNode, {
+            dojo.style(nextItemNode, {
                 opacity: 1
             });
         } else {
-            dojo.style(nextImageNode, {
+            dojo.style(nextItemNode, {
                 display: "block",
                 position: "absolute",
                 left: 0,
@@ -225,34 +241,16 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         }
 
 
-        this._currentImageDataItem = this._nextImageDataItem;
-        this._currentImageNode = nextImageNode;
+        this._currentItemDataItem = this._nextItemDataItem;
+        this._currentItemNode = nextItemNode;
         this._currentIndex = index;
 
-        this._currentImageDataItem.active = true;
-        this._putItemtoStore(this._currentImageDataItem);
+        this._currentItemDataItem.active = true;
+        this._putItemtoStore(this._currentItemDataItem);
 
 
-
-        if (!this._currentImageDataItem.imageWidth || !this._currentImageDataItem.imageHeight) {
-            var tempImage = new Image();
-            var that = this;
-            dojo.connect(tempImage, "onload", this,
-            function() {
-                this._currentImageDataItem.imageWidth = tempImage.width;
-                this._currentImageDataItem.imageHeight = tempImage.height;
-                this._putItemtoStore(this._currentImageDataItem);
-                this._parentMarginBox = this._getParentMarginBox(this._parentNode);
-                this._resizeImageNode(this._currentImageNode, this._parentMarginBox.h, this._parentMarginBox.w);
-            });
-            tempImage.src = this._currentImageDataItem.imageSrc;
-
-        } else {
-
-            this._parentMarginBox = this._getParentMarginBox(this._parentNode);
-            this._resizeImageNode(this._currentImageNode, this._parentMarginBox.h, this._parentMarginBox.w);
-
-        }
+        this._parentMarginBox = this._getParentMarginBox(this._parentNode);
+        this._resizeItemNode(this._currentItemNode, this._parentMarginBox.h, this._parentMarginBox.w);
 
         this.onChange();
 
@@ -260,17 +258,19 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
 
 
 
-    showNext: function() {
-        //public function to show next image	
+    showNext: function () {
+        if(this.debuggingMode){console.debug("showNext");}
+        //public function to show next item	
         var newIndex = this._currentIndex + 1;
-        if (this._internalDataStore.query(this._imageSetStoreQuery).length < newIndex) {
+        if (this._internalDataStore.query(this._itemSetStoreQuery).length < newIndex) {
             return;
         }
         this.showIndex(newIndex);
     },
 
-    showPrev: function() {
-        //public function to show next image
+    showPrev: function () {
+        if(this.debuggingMode){console.debug("showPrev");}
+        //public function to show next item
         var newIndex = this._currentIndex - 1;
         if (newIndex < 1) {
             return;
@@ -279,29 +279,34 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
     },
 
 
-    onChange: function() {
+    onChange: function () {
+        if(this.debuggingMode){console.debug("onChange");}
         //public event
         },
 
-    onParentSizeChange: function() {
+    onParentSizeChange: function () {
+        if(this.debuggingMode){console.debug("onParentSizeChange");}
         //public event
         },
 
-    onImageSetChange: function() {
+    onItemSetChange: function () {
+        if(this.debuggingMode){console.debug("onItemSetChange");}
         //public event
         },
 
 
 
-    _setup: function() {
-        this._setupData();
+    _setup: function () {
+        if(this.debuggingMode){console.debug("_setup");}
         this._setupDOM();
+        this._setupData();
+
     },
 
 
-    _setupData: function() {
+    _setupData: function () {
+        if(this.debuggingMode){console.debug("_setupData");}
         this._internalDataStore = new dojo.store.Memory();
-
 
         if (this.containerNode.childNodes.length >= 1) {
             this.addData({
@@ -321,16 +326,18 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
             });
         }
 
-        //apply the dataset to be used and autoshow first image
-        this.applyImageSet({
+        //apply the dataset to be used and autoshow first item
+        this.useSet({
             setName: this.initialSet || this._defaultSet
         });
 
     },
 
 
-    _setupDOM: function() {
+    _setupDOM: function () {
+        if(this.debuggingMode){console.debug("_setupDOM");}
         this._parentNode = this.domNode;
+
         this._parentMarginBox = this._getParentMarginBox(this._parentNode);
 
         //Monitor the parent domnode's size. RESOURCE INTENSIVE!
@@ -341,24 +348,27 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
     },
 
 
-    _addDataFromNode: function(sourceNode) {
+    _addDataFromNode: function (sourceNode) {
+        if(this.debuggingMode){console.debug("_addDataFromNode");}
         //private function to import data from a node.
-        //it parses a passed node, finding all child images, copys them over to the cacheNode and extracts all the info it finds on them.
-        dojo.query(this.childImageQuery, sourceNode).forEach(function(currentNode, index) {
+        //it parses a passed node, finding all child items, copys them over to the cacheNode and extracts all the info it finds on them.
+        dojo.query(this.childItemQuery, sourceNode).forEach(function (currentNode, index) {
+            var assetNode = dojo.query(">", currentNode)[0];
             var currentID = this._createIncrementalId();
             var dataItem = {};
-            var metaDataNodes = dojo.query(this.childImageMetadataQuery, currentNode.parentNode);
-            var setName = dojo.attr(currentNode.parentNode, "data-carousel-set-name") || this._defaultSet;
-            dojo.place(dojo.attr(currentNode, {
+            var metaDataNodes = dojo.query(this.childItemMetadataQuery, currentNode);
+            var setName = dojo.attr(currentNode, "data-carousel-set-name") || this._defaultSet;
+            dojo.place(dojo.attr(assetNode, {
                 "id": currentID,
                 style: {
                     "opacity": "0",
                     "display": "none"
                 }
             }), this.nodeCache, "last");
+
             this._addNewItemToStore(this._createDataItemFromNode({
                 currentID: currentID,
-                currentNode: currentNode,
+                currentNode: assetNode,
                 metaDataNodes: metaDataNodes,
                 setName: setName
             }));
@@ -370,40 +380,121 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
 
     },
 
-    _createDataItemFromNode: function(oArgs) {
+
+    _createDataItemFromNode: function (oArgs) {
+        if(this.debuggingMode){console.debug("_createDataItemFromNode");}
         //private function to generate a dataItem object from the DOM.
         //oArgs:
         //	currentID: current ID of node
-        //	currentNode: current node of image
+        //	currentNode: current node of item
         //	metaDataNodes: nodes containing metdata
-        //	setName: name of the image set
+        //	setName: name of the item set
+        var itemWidth;
+        var itemHeight;
+        //todo: this is ridicolously ugly. can it be made nicer? feedback anyone? sry i'm a deferred noob.
+
         var dataItem = {
             id: oArgs.currentID,
             setName: oArgs.setName,
             index: this._createIncrementalIndexBySet(oArgs.setName),
-            imageSrc: oArgs.currentNode.src,
-            imageIsLoaded: true,
-            imageNodeId: oArgs.currentID,
-            imageNode: oArgs.currentNode,
+            itemSrc: this.getSourceForNode(oArgs.currentNode),
+            itemWidth: itemWidth,
+            itemHeight: itemHeight,
+            itemIsLoaded: true,
+            itemNodeId: oArgs.currentID,
+            itemNode: oArgs.currentNode,
             metaData: {}
         };
+
+
+        dojo.when(this.getWidthFromItem(oArgs.currentNode), function(w){dataItem.itemWidth = w;});
+        dojo.when(this.getHeightFromItem(oArgs.currentNode), function(h){dataItem.itemHeight = h;});
+
+
+
         dojo.forEach(oArgs.metaDataNodes,
-        function(metaDataNode, metaDataIndex) {
+        function (metaDataNode, metaDataIndex) {
             var _keyName = dojo.attr(metaDataNode, "data-carousel-meta-type");
             dataItem.metaData[_keyName] = dojo.string.trim(metaDataNode.innerHTML);
         },
         this);
-
+        console.debug(dojo.clone(dataItem));  //THIS BRTCH's .itemWidth && .itemHeight IS UNDEFINED. if i simply console.log(dataItem) it will be populated by the time i inspect it. 
         return dataItem;
     },
+    
+    getWidthFromItem: function (node){
+        if(this.debuggingMode){console.debug("getWidthFromItem");}
+        if (node.tagName == "IMG"){
 
-    _createIncrementalId: function() {
-        //private function to generate an incremental Id for imagenodes
+            var def = new dojo.Deferred();
+
+            var tempImage = new Image();
+            var that = this;
+            dojo.connect(tempImage, "onload", this,
+            function () {
+                var forceRender = tempImage.offsetHeight;
+                var width = tempImage.width;
+                delete tempImage;
+                def.callback(width);
+                });
+            tempImage.src = node.src;
+            return def;
+
+        } else if (node.tagName == "VIDEO"){
+            return dojo.attr(node, "width");
+        }
+
+    },
+
+    getHeightFromItem: function (node){
+        if(this.debuggingMode){console.debug("getHeightFromItem");}
+        if (node.tagName == "IMG"){
+
+            var def = new dojo.Deferred();
+
+            var tempImage = new Image();
+            var that = this;
+            dojo.connect(tempImage, "onload", this,
+            function () {
+                var forceRender = tempImage.offsetHeight;
+                var height = tempImage.height;
+                delete tempImage;
+                def.callback(height);
+                });
+            tempImage.src = node.src;
+            return def;
+
+        } else if (node.tagName == "VIDEO"){
+            return dojo.attr(node, "height");
+        }
+
+    },
+
+
+    getSourceForNode: function (node) {
+        if(this.debuggingMode){console.debug("getSourceForNode");}
+        //get the source for an item or for a video
+        if (node.tagName == "IMG"){
+            return node.src;
+        } else if (node.tagName == "VIDEO"){
+            var sources = [];
+            dojo.query(">", node).forEach(function (subnode) {
+                sources.push(subnode.src);
+            },
+            this);
+            return sources;
+        }
+    },
+
+    _createIncrementalId: function () {
+        if(this.debuggingMode){console.debug("_createIncrementalId");}
+        //private function to generate an incremental Id for itemnodes
         this._incrementalId = this._incrementalId + 1;
         return this.id + "_" + this._incrementalId;
     },
 
-    _createIncrementalIndexBySet: function(setName) {
+    _createIncrementalIndexBySet: function (setName) {
+        if(this.debuggingMode){console.debug("_createIncrementalIndexBySet");}
         //private function to generate an incremental index for each set
         if (!this._incrementalIndexBySet[setName]) {
             this._incrementalIndexBySet[setName] = {};
@@ -413,32 +504,37 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         return this._incrementalIndexBySet[setName].indexPos;
     },
 
-    _addDataFromStore: function(storeId) {
+    _addDataFromStore: function (storeId) {
+        if(this.debuggingMode){console.debug("_addDataFromStore");}
         //not implemented yet
         },
 
-    _addDataFromURL: function(JSONurl) {
+    _addDataFromURL: function (JSONurl) {
+        if(this.debuggingMode){console.debug("_addDataFromURL");}
         //not implemented yet
         },
 
 
-    _addNewItemToStore: function(item) {
+    _addNewItemToStore: function (item) {
+        if(this.debuggingMode){console.debug("_addNewItemToStore");}
         //private function to add a single item to a store
         this._internalDataStore.add(item);
     },
 
-    _putItemtoStore: function(item) {
+    _putItemtoStore: function (item) {
+        if(this.debuggingMode){console.debug("_putItemtoStore");}
         //private function to update a single item to a store
         this._internalDataStore.put(item);
     },
 
-    _startMonitoringParentNode: function() {
+    _startMonitoringParentNode: function () {
+        if(this.debuggingMode){console.debug("_startMonitoringParentNode");}
         //set up the domnode monitoring
         this._parentMarginBox = this._getParentMarginBox(this._parentNode);
         this._monitorTimer = setInterval(dojo.hitch(this, "_monitorParentNodeSize"), this.monitorInterval);
     },
 
-    _getParentMarginBox: function(parentNode) {
+    _getParentMarginBox: function (parentNode) {
         //get the parent node's marginbox
         if (parentNode === dojo.body()) {
             return dojo.window.getBox();
@@ -448,7 +544,7 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         }
     },
 
-    _monitorParentNodeSize: function() {
+    _monitorParentNodeSize: function () {
         //monitors the size of a domnode, and if it changes it fires a callback function
         var currentSize = this._getParentMarginBox(this._parentNode);
         if ((this._parentMarginBox.w !== currentSize.w) || (this._parentMarginBox.h !== currentSize.h)) {
@@ -456,27 +552,31 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         }
     },
 
-    _onParentSizeChange: function() {
-        //private event to resize the image and fire the public event
+    _onParentSizeChange: function () {
+        if(this.debuggingMode){console.debug("_onParentSizeChange");}
+        //private event to resize the item and fire the public event
         this.onParentSizeChange();
         this._parentMarginBox = this._getParentMarginBox(this._parentNode);
-        this._resizeImageNode(this._currentImageNode, this._parentMarginBox.h, this._parentMarginBox.w);
+        this._resizeItemNode(this._currentItemNode, this._parentMarginBox.h, this._parentMarginBox.w);
     },
 
-    _resizeImageNode: function(img, h, w) {
-        var imageWHRatio = this._currentImageDataItem.imageWidth / this._currentImageDataItem.imageHeight;
-        if (imageWHRatio < w / h)
+    _resizeItemNode: function (img, h, w) {
+        if(this.debuggingMode){console.debug("_resizeItemNode");}
+        console.debug("wtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtf");
+        console.debug("current image size is reported at: " + this._currentItemDataItem.itemWidth + " , " +  this._currentItemDataItem.itemHeight);
+        var itemWHRatio = this._currentItemDataItem.itemWidth / this._currentItemDataItem.itemHeight;
+        if (itemWHRatio < w / h)
         {
             //width determines height
             dojo.attr(img, 'width', w);
-            var newH = Math.ceil(w / imageWHRatio);
+            var newH = Math.ceil(w / itemWHRatio);
             dojo.attr(img, 'height', newH);
             img.style.marginTop = (h - newH) / 2 + 'px';
             img.style.marginLeft = 0;
         } else {
             //height determines size
             dojo.attr(img, 'height', h);
-            var newW = Math.ceil(h * imageWHRatio);
+            var newW = Math.ceil(h * itemWHRatio);
             dojo.attr(img, 'width', newW);
             img.style.marginLeft = (w - newW) / 2 + 'px';
             img.style.marginTop = 0;
@@ -494,12 +594,13 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         "id": 1,
 		"setName" : "setXXX",
 		"index": 1,
-		"imageSrc": "url",
-		"imageIsLoaded": true,
-		"imageWidth": 400,
-		"imageHeight": 300,
-		"imageNode": domNode,
-		"imageNodeId": "domNodeID",
+		"itemSrc": "url",
+		"itemIsLoaded": true,
+		"itemWidth": 400,
+		"itemHeight": 300,
+		"itemNode": domNode,
+        "itemType": "image" || "video",
+		"itemNodeId": "domNodeID",
         "metaData": [{
             "name": "foo"
         },
@@ -512,7 +613,8 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
     ]
 }
 
-dijit.byId("myCarousel").applyImageSet({setName:"set1"})
+dijit.byId("myCarousel").useSet({setName:"set1"})
 dijit.byId("myCarousel").showNext()
 
 */
+
