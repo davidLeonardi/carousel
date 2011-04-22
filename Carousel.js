@@ -9,10 +9,11 @@ dojo.require("dijit._Templated");
 dojo.require("dojo.store.JsonRest");
 dojo.require("dojo.store.Memory");
 dojo.require("dojo.string");
+dojo.require("dojo.DeferredList");
 
 
 dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
-    debuggingMode : true,
+    debuggingMode: true,
 
     //css3 selector to determine the child nodes which will be used
     childItemQuery: ">",
@@ -41,62 +42,83 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
     jsonUrl: false,
 
 
-
     _defaultSet: "defaultSet",
     _incrementalId: 0,
 
 
-    constructor: function () {
-    if(this.debuggingMode){console.debug("constructor");}
+    constructor: function() {
+        if (this.debuggingMode) {
+            console.debug("constructor");
+        }
         this._incrementalIndexBySet = {};
+        this.queue = [];
+        this.listeners = [];
+        this._listenerTopics = ["ready"];
         this.inherited(arguments);
     },
 
-    startup: function () {
-        if(this.debuggingMode){console.debug("startup");}
+    startup: function() {
+        if (this.debuggingMode) {
+            console.debug("startup");
+        }
         //once the dom is parsed and the template is rendered, do something with it.
         if (this._started) {
             return;
         }
+        dojo.forEach(this._listenerTopics,
+        function(topic, index) {
+            this._listenerTopics[index] = this.id + "_" + topic;
+        },
+        this);
         this.inherited(arguments);
         this._setup();
         this._started = true;
 
     },
 
-    getCurrentSet: function () {
-        if(this.debuggingMode){console.debug("getCurrentSet");}
+    getCurrentSet: function() {
+        if (this.debuggingMode) {
+            console.debug("getCurrentSet");
+        }
         //public function to return current name of set
         return (this._itemSetStoreQuery.setName);
     },
 
-    getCurrentIndex: function () {
-        if(this.debuggingMode){console.debug("getCurrentIndex");}
+    getCurrentIndex: function() {
+        if (this.debuggingMode) {
+            console.debug("getCurrentIndex");
+        }
         //public function to return current item index
         return (this._currentIndex);
     },
 
-    getCurrentItemDataItem: function () {
-        if(this.debuggingMode){console.debug("getCurrentItemDataItem");}
+    getCurrentItemDataItem: function() {
+        if (this.debuggingMode) {
+            console.debug("getCurrentItemDataItem");
+        }
         //public function to return info about the current item.
         return (this._currentItemDataItem);
     },
 
 
-    getCurrentItems: function () {
-        if(this.debuggingMode){console.debug("getCurrentItems");}
+    getCurrentItems: function() {
+        if (this.debuggingMode) {
+            console.debug("getCurrentItems");
+        }
         //public function to return current items in the current set
-        return (this._internalDataStore.query(this._itemSetStoreQuery));
+        return (this._internalDataStore.query(this._itemSetStoreQuery, {sort:[{attribute:"index"}]}));
     },
 
-    getSets: function () {
-        if(this.debuggingMode){console.debug("getSets");}
+    getSets: function() {
+        if (this.debuggingMode) {
+            console.debug("getSets");
+        }
         //public function to return [] of available set names
         var items = [];
         dojo.forEach(this._internalDataStore.query(),
-            function (item) {
-                items.push(item.setName);
-            });
+        function(item) {
+            items.push(item.setName);
+        });
         items.sort();
         var j = 0;
         var itemSets = [];
@@ -112,16 +134,20 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         return (itemSets);
     },
 
-    getItemsBySet: function (setName) {
-        if(this.debuggingMode){console.debug("getItemsBySet");}
+    getItemsBySet: function(setName) {
+        if (this.debuggingMode) {
+            console.debug("getItemsBySet");
+        }
         //public function to return all items within a specified set
         return (this._internalDataStore.query({
             setName: setName
-        }));
+        }, {sort:[{attribute:"index"}]}));
     },
 
-    getItemBySetAndIndex: function (setName, index) {
-        if(this.debuggingMode){console.debug("getItemBySetAndIndex");}
+    getItemBySetAndIndex: function(setName, index) {
+        if (this.debuggingMode) {
+            console.debug("getItemBySetAndIndex");
+        }
         //public function to return an [] containing a specific item by index and set
         return this._internalDataStore.query({
             setName: setName,
@@ -129,14 +155,18 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         });
     },
 
-    getCurrentMetaData: function () {
-        if(this.debuggingMode){console.debug("getCurrentMetaData");}
+    getCurrentMetaData: function() {
+        if (this.debuggingMode) {
+            console.debug("getCurrentMetaData");
+        }
         //public function to return the metadata object for the current dataItem
         return (this._currentItemDataItem.metaData);
     },
 
-    getItemDataItemByIndex: function (index) {
-        if(this.debuggingMode){console.debug("getItemDataItemByIndex");}
+    getItemDataItemByIndex: function(index) {
+        if (this.debuggingMode) {
+            console.debug("getItemDataItemByIndex");
+        }
         //returns a data item from the store by an index key query
         return this._internalDataStore.query(dojo.mixin({
             index: index
@@ -144,14 +174,16 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         this._itemSetStoreQuery))[0];
     },
 
-    useSet: function (oArgs) {
-        if(this.debuggingMode){console.debug("useSet");}
+    useSet: function(oArgs) {
+        if (this.debuggingMode) {
+            console.debug("useSet");
+        }
         //public function to apply an items set.
-        // 	oArgs:
-        // 		setName : string. name of the itemSet
-        //		indexStart: When autoshowing, show item at index specified
-        // 		disableAutoShow: boolean. if true disables automatically showing the first item
-        //		
+        //  oArgs:
+        //      setName : string. name of the itemSet
+        //      indexStart: When autoshowing, show item at index specified
+        //      disableAutoShow: boolean. if true disables automatically showing the first item
+        //
         //do nothing if we're switching to the current set
         if ((this._itemSetStoreQuery) && (this._itemSetStoreQuery.setName === oArgs.setName)) {
             return;
@@ -163,6 +195,7 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
             setName: oArgs.setName
         };
 
+
         if (!oArgs.disableAutoShow) {
             this.showIndex(oArgs.indexStart || 1);
         }
@@ -171,30 +204,44 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
 
     },
 
-    addData: function (oArgs) {
-        if(this.debuggingMode){console.debug("addData");}
+    addData: function(oArgs) {
+        if (this.debuggingMode) {
+            console.debug("addData");
+        }
         //Public function to add data to the widget.
+        //Returns deferred object
         //oArgs: an object in the form of {node: domNode}, {store: "storeId"} or {url: "URL"}
         //DataItems will be added to the end of the list.
+        var def = new dojo.Deferred();
+
         if (oArgs.node) {
-            this._addDataFromNode(oArgs.node);
+            this._addDataFromNode(oArgs.node).then(function() {
+                def.resolve();
+            });
         } else if (oArgs.store) {
-            this._addDataFromStore(oArgs.store);
-        } else if (oArgs.url) {
-            this._addDataFromURL(oArgs.url);
-        } else {
+                        this._addDataFromStore(oArgs.store).then(function(){def.resolve();});
+            } else if (oArgs.url) {
+                        this._addDataFromURL(oArgs.url).then(function(){def.resolve();});
+            } else {
             console.error("No oArgs supplied. Please supply an url, a store id or a domNode.");
         }
 
+        return def;
 
     },
 
-    showIndex: function (index) {
-        if(this.debuggingMode){console.debug("showIndex");}
+    showIndex: function(index) {
+        if (this.debuggingMode) {
+            console.debug("showIndex");
+        }
         //public function to show an item at index X
         // possibly rename to setIndex
         //todo: break this up, its batshit ugly and overbloated and unflexible and i fucking hate it.
         this._nextItemDataItem = this.getItemDataItemByIndex(index);
+        if (!this._nextItemDataItem) {
+            console.error("fail.");
+            return;
+        }
         var nextItemNode = dojo.byId(this._nextItemDataItem.itemNodeId);
         if (this._currentItemDataItem) {
             var currentItemNode = dojo.byId(this._currentItemDataItem.itemNodeId);
@@ -258,8 +305,10 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
 
 
 
-    showNext: function () {
-        if(this.debuggingMode){console.debug("showNext");}
+    showNext: function() {
+        if (this.debuggingMode) {
+            console.debug("showNext");
+        }
         //public function to show next item	
         var newIndex = this._currentIndex + 1;
         if (this._internalDataStore.query(this._itemSetStoreQuery).length < newIndex) {
@@ -268,8 +317,10 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         this.showIndex(newIndex);
     },
 
-    showPrev: function () {
-        if(this.debuggingMode){console.debug("showPrev");}
+    showPrev: function() {
+        if (this.debuggingMode) {
+            console.debug("showPrev");
+        }
         //public function to show next item
         var newIndex = this._currentIndex - 1;
         if (newIndex < 1) {
@@ -279,85 +330,210 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
     },
 
 
-    onChange: function () {
-        if(this.debuggingMode){console.debug("onChange");}
+    onChange: function() {
+        if (this.debuggingMode) {
+            console.debug("onChange");
+        }
         //public event
-        },
+    },
 
-    onParentSizeChange: function () {
-        if(this.debuggingMode){console.debug("onParentSizeChange");}
+    onParentSizeChange: function() {
+        if (this.debuggingMode) {
+            console.debug("onParentSizeChange");
+        }
         //public event
-        },
+    },
 
-    onItemSetChange: function () {
-        if(this.debuggingMode){console.debug("onItemSetChange");}
+    onItemSetChange: function() {
+        if (this.debuggingMode) {
+            console.debug("onItemSetChange");
+        }
         //public event
-        },
-
-
-
-    _setup: function () {
-        if(this.debuggingMode){console.debug("_setup");}
-        this._setupDOM();
-        this._setupData();
-
     },
 
 
-    _setupData: function () {
-        if(this.debuggingMode){console.debug("_setupData");}
-        this._internalDataStore = new dojo.store.Memory();
-
-        if (this.containerNode.childNodes.length >= 1) {
-            this.addData({
-                node: this.containerNode
-            });
+    _setup: function() {
+        if (this.debuggingMode) {
+            console.debug("_setup");
         }
+        var defList = [];
+        var hitchedMonitorParent;
 
-        if (this.dataStoreId) {
-            this.addData({
-                store: this.dataStoreId
-            });
-        }
+        //Start up the event queue manager
+        this._createQueue(this._listenerTopics);
 
-        if (this.jsonUrl) {
-            this.addData({
-                url: this.jsonUrl
-            });
-        }
-
-        //apply the dataset to be used and autoshow first item
-        this.useSet({
-            setName: this.initialSet || this._defaultSet
-        });
-
-    },
-
-
-    _setupDOM: function () {
-        if(this.debuggingMode){console.debug("_setupDOM");}
         this._parentNode = this.domNode;
 
         this._parentMarginBox = this._getParentMarginBox(this._parentNode);
 
         //Monitor the parent domnode's size. RESOURCE INTENSIVE!
         if (this.monitorParent) {
-            this._startMonitoringParentNode();
+            hitchedMonitorParent = dojo.hitch(this, "_startMonitoringParentNode");
         }
+
+
+        //instantiate internal data store
+        this._internalDataStore = new dojo.store.Memory();
+
+
+        //if we have children domnodes treat them as data sources and parse them
+        if (this.containerNode.childNodes.length >= 1) {
+            defList.push(this.addData({
+                node: this.containerNode
+            }));
+        }
+
+        /*        //ditto if we received a datasore id
+        if (this.dataStoreId) {
+            defList.push(this.addData({
+                store: this.dataStoreId
+            }));
+        }
+
+        //or a json
+        if (this.jsonUrl) {
+            defList.push(this.addData({
+                url: this.jsonUrl
+            }));
+        }
+*/
+
+        //we've got lots of async processes. Lets leverage on deferredLists to manage this in a decent way.
+        var deferreds = new dojo.DeferredList(defList);
+
+        var setArgs = this.initialSet || this._defaultSet;
+        var hitchedUseSet = dojo.hitch(this, "useSet", {
+            setName: setArgs
+        });
+        var hitchedSetStarted = dojo.hitch(this, "_setStarted");
+        var widgetId = this.id;
+        deferreds.then(function() {
+            hitchedSetStarted();
+            if (this.debuggingMode) {
+                console.debug("Done adding dataitems. Showing something now.");
+            }
+            //apply the dataset to be used and autoshow first item
+            hitchedUseSet();
+            if (hitchedMonitorParent) {
+                hitchedMonitorParent();
+            }
+            dojo.publish(widgetId + "_ready", [{
+                ready: "ready"
+            }]);
+
+        });
+    },
+
+
+    _createQueue: function(topics) {
+        //create an initial place for all pubsubs to go, even if there is nothing set up to listen/it is not yet set up	
+        dojo.forEach(topics,
+        function(topic) {
+            var shorttopic = topic.replace(this.id + "_", "");
+            if (this.debuggingMode) {
+                console.log("creating evt handler for: " + shorttopic);
+            }
+            var queueitem = [];
+            var that = this;
+            this.listeners[shorttopic] = dojo.subscribe(topic,
+            function(message) {
+                queueitem.push(message);
+                that.queue[shorttopic] = queueitem;
+                if (this.debuggingMode) {
+                    console.log("i just came into the queue");
+                    console.log(that.queue[shorttopic]);
+                }
+            });
+        },
+        this);
+        if (this.debuggingMode) {
+            console.log("queue now contains:");
+            console.log(this.queue);
+        }
+    },
+
+    _getQueue: function(topic) {
+        //tell each topic requester what has queued up
+        return this.queue[topic];
+    },
+
+
+    _unsubscribeQueue: function(topic) {
+        //unsubscribe the event handler from listening to the com channel
+        if (this.debuggingMode) {
+            console.debug("disconnecting handler.. queue contained:");
+            console.debug(this.queue);
+            console.debug(this.listeners[topic]);
+        }
+        dojo.unsubscribe(this.listeners[topic]);
+        this.queue[topic] = undefined;
+    },
+
+    subscribeQueue: function(oArgs) {
+        //public method to connect to an event queue
+        //oArgs
+        //  topic: string, topic name for this widget to take over queue
+        //  callback: callback function to pass to dojo.subscribe for queue items
+        //  scope: scope to execute the callback in
+        //  ignoreOlder : boolean, process only the LAST queue event
+        var queueItems = [];
+        if (oArgs.ignoreOlder) {
+            queueItems.push(this.queue[oArgs.topic][this.queue[oArgs.topic].length - 1]);
+        } else {
+            queueItems = this.queue[oArgs.topic];
+        }
+
+        //do we have anything in the queue? if so, use the passed callback on it.
+        if (queueItems) {
+            dojo.forEach(queueItems,
+            function(queueItem) {
+                var hitched = dojo.hitch(oArgs.scope, oArgs.callback, queueItem);
+                hitched();
+            },
+            this);
+        }
+
+        //remove old subscriptions as they wont be needed anymore
+        this._unsubscribeQueue(oArgs.topic);
+
+        //create new subscriber
+        dojo.subscribe(this.id + "_" + oArgs.topic, oArgs.callback);
+
 
     },
 
 
-    _addDataFromNode: function (sourceNode) {
-        if(this.debuggingMode){console.debug("_addDataFromNode");}
+    _setStarted: function() {
+        this.started = true;
+    },
+
+    isStarted: function() {
+        return this.started || false;
+    },
+
+    _addDataFromNode: function(sourceNode) {
+        if (this.debuggingMode) {
+            console.debug("_addDataFromNode");
+        }
         //private function to import data from a node.
         //it parses a passed node, finding all child items, copys them over to the cacheNode and extracts all the info it finds on them.
-        dojo.query(this.childItemQuery, sourceNode).forEach(function (currentNode, index) {
+        var def = new dojo.Deferred();
+        var deferreds = [];
+        var deferredsList;
+
+        dojo.query(this.childItemQuery, sourceNode).forEach(function(currentNode, index) {
             var assetNode = dojo.query(">", currentNode)[0];
             var currentID = this._createIncrementalId();
-            var dataItem = {};
             var metaDataNodes = dojo.query(this.childItemMetadataQuery, currentNode);
             var setName = dojo.attr(currentNode, "data-carousel-set-name") || this._defaultSet;
+            var hitched_createDataItemFromNode = dojo.hitch(this, "_createDataItemFromNode", {
+                currentID: currentID,
+                currentNode: assetNode,
+                metaDataNodes: metaDataNodes,
+                setName: setName
+            });
+            var hitched_addNewItemToStore = dojo.hitch(this, "_addNewItemToStore");
+
             dojo.place(dojo.attr(assetNode, {
                 "id": currentID,
                 style: {
@@ -366,119 +542,124 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
                 }
             }), this.nodeCache, "last");
 
-            this._addNewItemToStore(this._createDataItemFromNode({
-                currentID: currentID,
-                currentNode: assetNode,
-                metaDataNodes: metaDataNodes,
-                setName: setName
+            deferreds.push(hitched_createDataItemFromNode().then(function(res) {
+                hitched_addNewItemToStore(res);
             }));
 
         },
         this);
-
-        dojo.empty(sourceNode);
+        deferredsList = new dojo.DeferredList(deferreds).then(function() {
+            dojo.empty(sourceNode);
+            def.resolve();
+        });
+        return def;
 
     },
 
 
-    _createDataItemFromNode: function (oArgs) {
-        if(this.debuggingMode){console.debug("_createDataItemFromNode");}
+    _createDataItemFromNode: function(oArgs) {
+        if (this.debuggingMode) {
+            console.debug("_createDataItemFromNode");
+        }
         //private function to generate a dataItem object from the DOM.
         //oArgs:
         //	currentID: current ID of node
         //	currentNode: current node of item
         //	metaDataNodes: nodes containing metdata
         //	setName: name of the item set
-        var itemWidth;
-        var itemHeight;
-        //todo: this is ridicolously ugly. can it be made nicer? feedback anyone? sry i'm a deferred noob.
+        var def = new dojo.Deferred();
+        var deferreds = new dojo.DeferredList([this.getWidthFromItem(oArgs.currentNode), this.getHeightFromItem(oArgs.currentNode)]);
+        var hitched_createIncrementalIndexBySet = dojo.hitch(this, "_createIncrementalIndexBySet", oArgs.setName);
+        var hitchedGetSourceForNode = dojo.hitch(this, "getSourceForNode", oArgs.currentNode);
+        var index = hitched_createIncrementalIndexBySet();
+        dojo.when(deferreds,
+        function(results) {
+            var dataItem = {
+                id: oArgs.currentID,
+                setName: oArgs.setName,
+                index: index,
+                itemSrc: hitchedGetSourceForNode(),
+                itemWidth: results[0][1],
+                itemHeight: results[1][1],
+                itemIsLoaded: true,
+                itemNodeId: oArgs.currentID,
+                itemNode: oArgs.currentNode,
+                metaData: {}
+            };
+            dojo.forEach(oArgs.metaDataNodes,
+            function(metaDataNode, metaDataIndex) {
+                var _keyName = dojo.attr(metaDataNode, "data-carousel-meta-type");
+                dataItem.metaData[_keyName] = dojo.string.trim(metaDataNode.innerHTML);
+            },
+            this);
 
-        var dataItem = {
-            id: oArgs.currentID,
-            setName: oArgs.setName,
-            index: this._createIncrementalIndexBySet(oArgs.setName),
-            itemSrc: this.getSourceForNode(oArgs.currentNode),
-            itemWidth: itemWidth,
-            itemHeight: itemHeight,
-            itemIsLoaded: true,
-            itemNodeId: oArgs.currentID,
-            itemNode: oArgs.currentNode,
-            metaData: {}
-        };
-
-
-        dojo.when(this.getWidthFromItem(oArgs.currentNode), function(w){dataItem.itemWidth = w;});
-        dojo.when(this.getHeightFromItem(oArgs.currentNode), function(h){dataItem.itemHeight = h;});
+            def.resolve(dataItem);
 
 
 
-        dojo.forEach(oArgs.metaDataNodes,
-        function (metaDataNode, metaDataIndex) {
-            var _keyName = dojo.attr(metaDataNode, "data-carousel-meta-type");
-            dataItem.metaData[_keyName] = dojo.string.trim(metaDataNode.innerHTML);
-        },
-        this);
-        console.debug(dojo.clone(dataItem));  //THIS BRTCH's .itemWidth && .itemHeight IS UNDEFINED. if i simply console.log(dataItem) it will be populated by the time i inspect it. 
-        return dataItem;
+        });
+        return def;
+
     },
-    
-    getWidthFromItem: function (node){
-        if(this.debuggingMode){console.debug("getWidthFromItem");}
-        if (node.tagName == "IMG"){
 
-            var def = new dojo.Deferred();
-
+    getWidthFromItem: function(node) {
+        if (this.debuggingMode) {
+            console.debug("getWidthFromItem");
+        }
+        var def = new dojo.Deferred();
+        if (node.tagName === "IMG") {
             var tempImage = new Image();
             var that = this;
+            
             dojo.connect(tempImage, "onload", this,
-            function () {
-                var forceRender = tempImage.offsetHeight;
+            function() {
                 var width = tempImage.width;
                 delete tempImage;
-                def.callback(width);
-                });
+                def.resolve(width);
+            });
             tempImage.src = node.src;
-            return def;
 
-        } else if (node.tagName == "VIDEO"){
-            return dojo.attr(node, "width");
+        } else if (node.tagName === "VIDEO") {
+            def.resolve(dojo.attr(node, "width"));
         }
-
+        
+        return def;
     },
 
-    getHeightFromItem: function (node){
-        if(this.debuggingMode){console.debug("getHeightFromItem");}
-        if (node.tagName == "IMG"){
-
-            var def = new dojo.Deferred();
+    getHeightFromItem: function(node) {
+        if (this.debuggingMode) {
+            console.debug("getHeightFromItem");
+        }
+        var def = new dojo.Deferred();
+        if (node.tagName === "IMG") {
 
             var tempImage = new Image();
-            var that = this;
             dojo.connect(tempImage, "onload", this,
-            function () {
-                var forceRender = tempImage.offsetHeight;
+            function() {
                 var height = tempImage.height;
                 delete tempImage;
-                def.callback(height);
-                });
+                def.resolve(height);
+            });
             tempImage.src = node.src;
-            return def;
 
-        } else if (node.tagName == "VIDEO"){
-            return dojo.attr(node, "height");
+        } else if (node.tagName === "VIDEO") {
+            def.resolve(dojo.attr(node, "height"));
         }
 
+        return def;
     },
 
 
-    getSourceForNode: function (node) {
-        if(this.debuggingMode){console.debug("getSourceForNode");}
+    getSourceForNode: function(node) {
+        if (this.debuggingMode) {
+            console.debug("getSourceForNode");
+        }
         //get the source for an item or for a video
-        if (node.tagName == "IMG"){
+        if (node.tagName === "IMG") {
             return node.src;
-        } else if (node.tagName == "VIDEO"){
+        } else if (node.tagName === "VIDEO") {
             var sources = [];
-            dojo.query(">", node).forEach(function (subnode) {
+            dojo.query(">", node).forEach(function(subnode) {
                 sources.push(subnode.src);
             },
             this);
@@ -486,15 +667,19 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         }
     },
 
-    _createIncrementalId: function () {
-        if(this.debuggingMode){console.debug("_createIncrementalId");}
+    _createIncrementalId: function() {
+        if (this.debuggingMode) {
+            console.debug("_createIncrementalId");
+        }
         //private function to generate an incremental Id for itemnodes
         this._incrementalId = this._incrementalId + 1;
         return this.id + "_" + this._incrementalId;
     },
 
-    _createIncrementalIndexBySet: function (setName) {
-        if(this.debuggingMode){console.debug("_createIncrementalIndexBySet");}
+    _createIncrementalIndexBySet: function(setName) {
+        if (this.debuggingMode) {
+            console.debug("_createIncrementalIndexBySet");
+        }
         //private function to generate an incremental index for each set
         if (!this._incrementalIndexBySet[setName]) {
             this._incrementalIndexBySet[setName] = {};
@@ -504,37 +689,47 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         return this._incrementalIndexBySet[setName].indexPos;
     },
 
-    _addDataFromStore: function (storeId) {
-        if(this.debuggingMode){console.debug("_addDataFromStore");}
+    _addDataFromStore: function(storeId) {
+        if (this.debuggingMode) {
+            console.debug("_addDataFromStore");
+        }
         //not implemented yet
-        },
+    },
 
-    _addDataFromURL: function (JSONurl) {
-        if(this.debuggingMode){console.debug("_addDataFromURL");}
+    _addDataFromURL: function(JSONurl) {
+        if (this.debuggingMode) {
+            console.debug("_addDataFromURL");
+        }
         //not implemented yet
-        },
+    },
 
 
-    _addNewItemToStore: function (item) {
-        if(this.debuggingMode){console.debug("_addNewItemToStore");}
+    _addNewItemToStore: function(item) {
+        if (this.debuggingMode) {
+            console.debug("_addNewItemToStore");
+        }
         //private function to add a single item to a store
         this._internalDataStore.add(item);
     },
 
-    _putItemtoStore: function (item) {
-        if(this.debuggingMode){console.debug("_putItemtoStore");}
+    _putItemtoStore: function(item) {
+        if (this.debuggingMode) {
+            console.debug("_putItemtoStore");
+        }
         //private function to update a single item to a store
         this._internalDataStore.put(item);
     },
 
-    _startMonitoringParentNode: function () {
-        if(this.debuggingMode){console.debug("_startMonitoringParentNode");}
+    _startMonitoringParentNode: function() {
+        if (this.debuggingMode) {
+            console.debug("_startMonitoringParentNode");
+        }
         //set up the domnode monitoring
         this._parentMarginBox = this._getParentMarginBox(this._parentNode);
         this._monitorTimer = setInterval(dojo.hitch(this, "_monitorParentNodeSize"), this.monitorInterval);
     },
 
-    _getParentMarginBox: function (parentNode) {
+    _getParentMarginBox: function(parentNode) {
         //get the parent node's marginbox
         if (parentNode === dojo.body()) {
             return dojo.window.getBox();
@@ -544,7 +739,7 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         }
     },
 
-    _monitorParentNodeSize: function () {
+    _monitorParentNodeSize: function() {
         //monitors the size of a domnode, and if it changes it fires a callback function
         var currentSize = this._getParentMarginBox(this._parentNode);
         if ((this._parentMarginBox.w !== currentSize.w) || (this._parentMarginBox.h !== currentSize.h)) {
@@ -552,18 +747,22 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         }
     },
 
-    _onParentSizeChange: function () {
-        if(this.debuggingMode){console.debug("_onParentSizeChange");}
+    _onParentSizeChange: function() {
+        if (this.debuggingMode) {
+            console.debug("_onParentSizeChange");
+        }
         //private event to resize the item and fire the public event
         this.onParentSizeChange();
         this._parentMarginBox = this._getParentMarginBox(this._parentNode);
         this._resizeItemNode(this._currentItemNode, this._parentMarginBox.h, this._parentMarginBox.w);
     },
 
-    _resizeItemNode: function (img, h, w) {
-        if(this.debuggingMode){console.debug("_resizeItemNode");}
-        console.debug("wtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtfwtf");
-        console.debug("current image size is reported at: " + this._currentItemDataItem.itemWidth + " , " +  this._currentItemDataItem.itemHeight);
+    _resizeItemNode: function(img, h, w) {
+        if (this.debuggingMode) {
+            console.debug("_resizeItemNode");
+        }
+
+        console.debug("current image size is reported at: " + this._currentItemDataItem.itemWidth + " , " + this._currentItemDataItem.itemHeight);
         var itemWHRatio = this._currentItemDataItem.itemWidth / this._currentItemDataItem.itemHeight;
         if (itemWHRatio < w / h)
         {
@@ -616,5 +815,16 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
 dijit.byId("myCarousel").useSet({setName:"set1"})
 dijit.byId("myCarousel").showNext()
 
-*/
 
+
+
+
+
+
+
+
+
+
+
+
+*/
