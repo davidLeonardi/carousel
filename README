@@ -1,12 +1,12 @@
 Experimental image carousel module for dojox.image that leverages on dojo.store and has lots of nice feautures.
 
 Most notable feautures:
--Automatic resizing of images based on parent domnode size. Never specify height/width again!
+-Automatic resizing of images/video based on parent domnode size.
 -Image sets allow to seamlessly and effortlessly switch from one set of images as you please
 -Unlimited metadata fields per image
 -Add images directly from DOM. Soon to support json or another dojo.store !
 -Html5 compliant
--Soon to have Video support too! [open for suggestions on this one]
+-Video support (html5 and flash fallback) using Krok Camen's approach
 -Soon to have pluggable image transitions [open for suggestions on this one]
 -Soon to have separate modules providing controls for the carousel [open for suggestions on this one]
 
