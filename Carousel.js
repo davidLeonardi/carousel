@@ -11,6 +11,9 @@ dojo.require("dojo.store.Memory");
 dojo.require("dojo.string");
 dojo.require("dojo.DeferredList");
 
+//notes: to use the camen "video for everyone" approach, and have support for the VIDEO tag on ie<9, you MUST use the html 5 shim:
+// document.createElement("video");
+//BEFORE the browser encounters a video tag. This means that you REALLY should place the above line right after the opening of your body tag.
 
 dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
     debuggingMode: true,
@@ -61,15 +64,13 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         if (this.debuggingMode) {
             console.debug("startup");
         }
-        //once the dom is parsed and the template is rendered, do something with it.
         if (this._started) {
             return;
         }
         dojo.forEach(this._listenerTopics,
         function(topic, index) {
             this._listenerTopics[index] = this.id + "_" + topic;
-        },
-        this);
+        }, this);
         this.inherited(arguments);
         this._setup();
         this._started = true;
@@ -289,7 +290,17 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
 
 
         this._currentItemDataItem = this._nextItemDataItem;
-        this._currentItemNode = nextItemNode;
+
+        if((nextItemNode.tagName == "video") || (nextItemNode.tagName == "VIDEO")){
+            if(this._playerType == "html5"){
+                this._currentItemNode = nextItemNode;
+            } else {
+                this._currentItemNode = dojo.query("object", nextItemNode)[0];
+            }
+        } else {
+                this._currentItemNode = nextItemNode;
+        }
+
         this._currentIndex = index;
 
         this._currentItemDataItem.active = true;
@@ -366,6 +377,8 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
 
         this._parentMarginBox = this._getParentMarginBox(this._parentNode);
 
+        this._playerType = this._determinePlayerType();
+
         //Monitor the parent domnode's size. RESOURCE INTENSIVE!
         if (this.monitorParent) {
             hitchedMonitorParent = dojo.hitch(this, "_startMonitoringParentNode");
@@ -422,6 +435,22 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
             }]);
 
         });
+    },
+    
+    _isHostType: function(object, property){
+        var NON_HOST_TYPES = { "boolean": 1, "number": 1, "string": 1, "undefined": 1 };
+        var type = typeof object[property];
+        return type == 'object' ? !!object[property] : !NON_HOST_TYPES[type];
+    },
+
+    _determinePlayerType: function(){
+
+        var video = document.createElement("video");
+        var type = this._isHostType(video, "canPlayType");
+        // note: in FF 3.5.1 and 3.5.0 only, "no" was a return value instead of empty string.
+        console.debug(type);
+        return type ? "html5" : "flash";
+
     },
 
 
@@ -542,12 +571,13 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
                 }
             }), this.nodeCache, "last");
 
+
             deferreds.push(hitched_createDataItemFromNode().then(function(res) {
                 hitched_addNewItemToStore(res);
             }));
 
-        },
-        this);
+        }, this);
+
         deferredsList = new dojo.DeferredList(deferreds).then(function() {
             dojo.empty(sourceNode);
             def.resolve();
@@ -619,7 +649,7 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
             });
             tempImage.src = node.src;
 
-        } else if (node.tagName === "VIDEO") {
+        } else if (node.tagName === "VIDEO" || node.tagName === "video") {
             def.resolve(dojo.attr(node, "width"));
         }
         
@@ -642,9 +672,9 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
             });
             tempImage.src = node.src;
 
-        } else if (node.tagName === "VIDEO") {
+        } else if (node.tagName === "VIDEO" || node.tagName === "video") {
             def.resolve(dojo.attr(node, "height"));
-        }
+        } 
 
         return def;
     },
@@ -657,7 +687,7 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         //get the source for an item or for a video
         if (node.tagName === "IMG") {
             return node.src;
-        } else if (node.tagName === "VIDEO") {
+        } else if (node.tagName === "VIDEO" || node.tagName === "video") {
             var sources = [];
             dojo.query(">", node).forEach(function(subnode) {
                 sources.push(subnode.src);
@@ -757,7 +787,7 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         this._resizeItemNode(this._currentItemNode, this._parentMarginBox.h, this._parentMarginBox.w);
     },
 
-    _resizeItemNode: function(img, h, w) {
+    _resizeItemNode: function(container, h, w) {
         if (this.debuggingMode) {
             console.debug("_resizeItemNode");
         }
@@ -767,18 +797,18 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         if (itemWHRatio < w / h)
         {
             //width determines height
-            dojo.attr(img, 'width', w);
+            dojo.attr(container, 'width', w);
             var newH = Math.ceil(w / itemWHRatio);
-            dojo.attr(img, 'height', newH);
-            img.style.marginTop = (h - newH) / 2 + 'px';
-            img.style.marginLeft = 0;
+            dojo.attr(container, 'height', newH);
+            container.style.marginTop = (h - newH) / 2 + 'px';
+            container.style.marginLeft = 0;
         } else {
             //height determines size
-            dojo.attr(img, 'height', h);
+            dojo.attr(container, 'height', h);
             var newW = Math.ceil(h * itemWHRatio);
-            dojo.attr(img, 'width', newW);
-            img.style.marginLeft = (w - newW) / 2 + 'px';
-            img.style.marginTop = 0;
+            dojo.attr(container, 'width', newW);
+            container.style.marginLeft = (w - newW) / 2 + 'px';
+            container.style.marginTop = 0;
         }
 
     }
