@@ -701,7 +701,6 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
             return node.src;
         } else if (node.tagName === "VIDEO" || node.tagName === "video") {
             var sources = [];
-            console.error(dojo.query(">", node).length);
             dojo.query(">", node).forEach(function(subnode) {
                 
             //ie hack: 
@@ -711,7 +710,6 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
 
             },
             this);
-            debugger;
             return sources;
         }
     },
