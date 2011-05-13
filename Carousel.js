@@ -305,12 +305,6 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
                 this._currentItemDataItem.playerInstance = this._currentItemNode;
             } else {
                 this._currentItemNode = dojo.create("div",{}, nextItemNode, "first");
-                console.debug("******************************************************");
-                console.debug(this._currentItemDataItem.itemSrc[0]);
-                console.debug(this._currentItemDataItem.itemSrc[1]);
-                console.debug(this._currentItemDataItem.itemSrc[2]);
-                console.debug(this._currentItemDataItem.itemSrc["flv"]);                                
-                console.debug("******************************************************");
                 this._currentItemDataItem.playerInstance = new dojox.av.FLVideo({mediaUrl:this._currentItemDataItem.itemSrc["flv"]}, this._currentItemNode);
             }
         } else {
