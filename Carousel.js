@@ -10,6 +10,7 @@ dojo.require("dojo.store.JsonRest");
 dojo.require("dojo.store.Memory");
 dojo.require("dojo.string");
 dojo.require("dojo.DeferredList");
+dojo.require("dojox.av.FLVideo");
 
 //notes: to use the camen "video for everyone" approach, and have support for the VIDEO tag on ie<9, you MUST use the html 5 shim:
 // document.createElement("video");
@@ -239,8 +240,8 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         // possibly rename to setIndex
         //todo: break this up, its batshit ugly and overbloated and unflexible and i fucking hate it.
         this._nextItemDataItem = this.getItemDataItemByIndex(index);
+        //if we have no next data item we are most probably in the state where we are starting with a bogus | default image set, silently ignore this and don't throw any errors about it.
         if (!this._nextItemDataItem) {
-            console.error("fail.");
             return;
         }
         var nextItemNode = dojo.byId(this._nextItemDataItem.itemNodeId);
@@ -271,14 +272,21 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
                 left: 0,
                 top: 0
             });
-            dojo.style(currentItemNode, {
+            dojox.fx.crossFade({nodes:[currentItemNode, nextItemNode], duration:1000, onEnd: function(){
+                dojo.style(currentItemNode, "display", "none");
+            if(this._playerType == "flash"){
+                this._currentItemDataItem.playerInstance.destroy();
+            }
+            }}).play();
+            
+/*            dojo.style(currentItemNode, {
                 opacity: 0,
                 display: "none"
             });
             dojo.style(nextItemNode, {
                 opacity: 1
             });
-        } else {
+*/        } else {
             dojo.style(nextItemNode, {
                 display: "block",
                 position: "absolute",
@@ -294,8 +302,16 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         if((nextItemNode.tagName == "video") || (nextItemNode.tagName == "VIDEO")){
             if(this._playerType == "html5"){
                 this._currentItemNode = nextItemNode;
+                this._currentItemDataItem.playerInstance = this._currentItemNode;
             } else {
-                this._currentItemNode = dojo.query("object", nextItemNode)[0];
+                this._currentItemNode = dojo.create("div",{}, nextItemNode, "first");
+                console.debug("******************************************************");
+                console.debug(this._currentItemDataItem.itemSrc[0]);
+                console.debug(this._currentItemDataItem.itemSrc[1]);
+                console.debug(this._currentItemDataItem.itemSrc[2]);
+                console.debug(this._currentItemDataItem.itemSrc["flv"]);                                
+                console.debug("******************************************************");
+                this._currentItemDataItem.playerInstance = new dojox.av.FLVideo({mediaUrl:this._currentItemDataItem.itemSrc["flv"]}, this._currentItemNode);
             }
         } else {
                 this._currentItemNode = nextItemNode;
@@ -611,6 +627,7 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
                 itemSrc: hitchedGetSourceForNode(),
                 itemWidth: results[0][1],
                 itemHeight: results[1][1],
+                itemType: oArgs.currentNode.tagName.toLowerCase(),
                 itemIsLoaded: true,
                 itemNodeId: oArgs.currentID,
                 itemNode: oArgs.currentNode,
@@ -681,6 +698,7 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
 
 
     getSourceForNode: function(node) {
+        //ie has an interesting flaw where it sees textnodes everywhere... omg, it's ghosts!
         if (this.debuggingMode) {
             console.debug("getSourceForNode");
         }
@@ -689,10 +707,17 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
             return node.src;
         } else if (node.tagName === "VIDEO" || node.tagName === "video") {
             var sources = [];
+            console.error(dojo.query(">", node).length);
             dojo.query(">", node).forEach(function(subnode) {
-                sources.push(subnode.src);
+                
+            //ie hack: 
+            if(dojo.attr(subnode, "src")){
+                sources[dojo.attr(subnode, "type").split("/")[1]] = dojo.attr(subnode, "src");    
+            }
+
             },
             this);
+            debugger;
             return sources;
         }
     },
@@ -765,6 +790,7 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
             return dojo.window.getBox();
         } else {
             //we only need w/h, use optimized function for this.
+//            if(this.id == "statementsCarousel"){console.debug(dojo._getMarginSize(parentNode))}
             return dojo._getMarginSize(parentNode);
         }
     },
@@ -798,17 +824,25 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         {
             //width determines height
             dojo.attr(container, 'width', w);
+            dojo.style(container, 'width', w + "px");
             var newH = Math.ceil(w / itemWHRatio);
             dojo.attr(container, 'height', newH);
+            dojo.style(container, 'height', newH + "px");
             container.style.marginTop = (h - newH) / 2 + 'px';
             container.style.marginLeft = 0;
+            console.debug(container);
+            console.debug("resized asset to: " + w + " / " + newH);
         } else {
             //height determines size
             dojo.attr(container, 'height', h);
+            dojo.style(container, 'height', h + "px");
             var newW = Math.ceil(h * itemWHRatio);
             dojo.attr(container, 'width', newW);
+            dojo.style(container, 'width', newW + "px");
             container.style.marginLeft = (w - newW) / 2 + 'px';
             container.style.marginTop = 0;
+            console.debug(container);
+            console.debug("resized asset to: " + newW + " / " + h);
         }
 
     }
@@ -823,11 +857,12 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         "id": 1,
 		"setName" : "setXXX",
 		"index": 1,
-		"itemSrc": "url",
+		"itemSrc": {type:url},
 		"itemIsLoaded": true,
 		"itemWidth": 400,
 		"itemHeight": 300,
 		"itemNode": domNode,
+        "playerInstance" : {},
         "itemType": "image" || "video",
 		"itemNodeId": "domNodeID",
         "metaData": [{
