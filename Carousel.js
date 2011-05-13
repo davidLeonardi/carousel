@@ -255,6 +255,13 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
             return;
         }
 
+        //if previous element is a video, stop it and destroy its instance.
+        if (this._currentItemDataItem && (this._currentItemDataItem.itemType === "video") && (this._playerType === "flash")) {
+            this._currentItemDataItem.playerInstance.destroy();
+        }
+
+
+
         if (!this._nextItemDataItem.itemIsLoaded) {
             //not implemented yet: _loadItem
             }
