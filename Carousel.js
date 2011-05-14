@@ -25,8 +25,8 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
     //css3 selector to determine the child nodes which will be used
     childItemMetadataQuery: "[data-carousel-meta-type]",
 
-    //RESOURCE INTENSIVE! monitor parent domNode and detect size changes
-    //Full disclosure: useful when this widget is used within resizable domNodes
+    //Monitor parent domNode and detect size changes
+    //Useful when this widget is used within resizable domNodes
     //such as contentPanes, and other stuff which has the tendency to resize itself often.
     //todo: implement native dijit methods like resize and so to reduce performance hit if parent is a dijit widget which
     //calls these events on children
@@ -255,9 +255,13 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
             return;
         }
 
-        //if previous element is a video, stop it and destroy its instance.
+        //if previous element is a video, destroy its instance and container node, and re-place the original video element in the nodecache so that the next round will be unaffected
         if (this._currentItemDataItem && (this._currentItemDataItem.itemType === "video") && (this._playerType === "flash")) {
+            var divId = this._currentItemDataItem.playerInstance.id;
             this._currentItemDataItem.playerInstance.destroy();
+            dojo.destroy(dojo.byId(divId));
+            dojo.place(this._currentItemDataItem.itemNode, this.nodeCache, "last");
+            dojo.style(this._currentItemDataItem.itemNode, {opacity: 0, display: "none"});
         }
 
 
@@ -279,21 +283,9 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
                 left: 0,
                 top: 0
             });
-            dojox.fx.crossFade({nodes:[currentItemNode, nextItemNode], duration:1000, onEnd: function(){
-                dojo.style(currentItemNode, "display", "none");
-            if(this._playerType == "flash"){
-                this._currentItemDataItem.playerInstance.destroy();
-            }
-            }}).play();
+            dojox.fx.crossFade({nodes:[currentItemNode, nextItemNode], duration:1000, onEnd: function(){dojo.style(currentItemNode, "display", "none");}}).play();
             
-/*            dojo.style(currentItemNode, {
-                opacity: 0,
-                display: "none"
-            });
-            dojo.style(nextItemNode, {
-                opacity: 1
-            });
-*/        } else {
+        } else {
             dojo.style(nextItemNode, {
                 display: "block",
                 position: "absolute",
@@ -311,7 +303,7 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
                 this._currentItemNode = nextItemNode;
                 this._currentItemDataItem.playerInstance = this._currentItemNode;
             } else {
-                this._currentItemNode = dojo.create("div",{}, nextItemNode, "first");
+                this._currentItemNode = dojo.create("div",{}, nextItemNode, "replace");
                 this._currentItemDataItem.playerInstance = new dojox.av.FLVideo({mediaUrl:this._currentItemDataItem.itemSrc["flv"]}, this._currentItemNode);
             }
         } else {
@@ -396,7 +388,7 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
 
         this._playerType = this._determinePlayerType();
 
-        //Monitor the parent domnode's size. RESOURCE INTENSIVE!
+        //Monitor the parent domnode's size.
         if (this.monitorParent) {
             hitchedMonitorParent = dojo.hitch(this, "_startMonitoringParentNode");
         }
@@ -466,7 +458,15 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         var type = this._isHostType(video, "canPlayType");
         // note: in FF 3.5.1 and 3.5.0 only, "no" was a return value instead of empty string.
         console.debug(type);
-        return type ? "html5" : "flash";
+        if(type == "html5"){
+            //check if we REALLY can play html5 video. "maybie" is not enough evidently.
+            if((video.canPlayType('video/mp4') == "probably") || (video.canPlayType('video/ogv') == "probably") || (video.canPlayType('video/webm') == "probably")){
+
+                return "html5";
+            }
+        }
+
+        return "flash";
 
     },
 
