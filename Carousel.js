@@ -16,6 +16,10 @@ dojo.require("dojox.av.FLVideo");
 // document.createElement("video");
 //BEFORE the browser encounters a video tag. This means that you REALLY should place the above line right after the opening of your body tag.
 
+
+//special "autoplay" when shown feauture: add data-carousel-play-when-shown="true" to the <video>'s node in the original markup
+
+
 dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
     debuggingMode: true,
 
@@ -57,6 +61,7 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         this._incrementalIndexBySet = {};
         this.queue = [];
         this.listeners = [];
+        this.disconnectHandlersWhenItemIsChanged = [];
         this._listenerTopics = ["ready"];
         this.inherited(arguments);
     },
@@ -117,11 +122,11 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         }
         //public function to return [] of available set names
         var items = [];
-        dojo.forEach(this._internalDataStore.query(),
-        function(item) {
-            items.push(item.setName);
-        });
-        items.sort();
+        dojo.forEach(this._internalDataStore.query({}, {sort:[{attribute:"setIndex"}]}),
+            function(item) {
+                items.push(item.setName);
+            }
+        );
         var j = 0;
         var itemSets = [];
         var i;
@@ -236,6 +241,12 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         if (this.debuggingMode) {
             console.debug("showIndex");
         }
+
+        dojo.forEach(this.disconnectHandlersWhenItemIsChanged,function (handler){
+            dojo.disconnect(handler);
+        },this);
+        this.disconnectHandlersWhenItemIsChanged = [];
+
         //public function to show an item at index X
         // possibly rename to setIndex
         //todo: break this up, its batshit ugly and overbloated and unflexible and i fucking hate it.
@@ -255,7 +266,7 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
             return;
         }
 
-        //if previous element is a video, destroy its instance and container node, and re-place the original video element in the nodecache so that the next round will be unaffected
+        //if previous element is a video, destroy its instance and container node, and re-place the original video element in the nodecache so that the next round will be unaffected and reset
         if (this._currentItemDataItem && (this._currentItemDataItem.itemType === "video") && (this._playerType === "flash")) {
             var divId = this._currentItemDataItem.playerInstance.id;
             this._currentItemDataItem.playerInstance.destroy();
@@ -264,7 +275,11 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
             dojo.style(this._currentItemDataItem.itemNode, {opacity: 0, display: "none"});
         }
 
-
+        //reset the html5 player as well
+        if (this._currentItemDataItem && (this._currentItemDataItem.itemType === "video") && (this._playerType === "html5")) {
+            this._currentItemDataItem.playerInstance.pause();
+            this._currentItemDataItem.playerInstance.currentTime = 0;
+        }
 
         if (!this._nextItemDataItem.itemIsLoaded) {
             //not implemented yet: _loadItem
@@ -283,7 +298,7 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
                 left: 0,
                 top: 0
             });
-            dojox.fx.crossFade({nodes:[currentItemNode, nextItemNode], duration:1000, onEnd: function(){dojo.style(currentItemNode, "display", "none");}}).play();
+            dojox.fx.crossFade({nodes:[currentItemNode, nextItemNode], duration:400, onEnd: function(){dojo.style(currentItemNode, "display", "none");}}).play();
             
         } else {
             dojo.style(nextItemNode, {
@@ -299,15 +314,51 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         this._currentItemDataItem = this._nextItemDataItem;
 
         if((nextItemNode.tagName == "video") || (nextItemNode.tagName == "VIDEO")){
+            this._currentItemNode = nextItemNode;
+            this._autoPlayWhenShown = dojo.attr(this._currentItemNode, "data-carousel-play-when-shown");
+            this._loopVideo = dojo.attr(this._currentItemNode, "data-carousel-loop-video");
+
+
             if(this._playerType == "html5"){
-                this._currentItemNode = nextItemNode;
                 this._currentItemDataItem.playerInstance = this._currentItemNode;
             } else {
-                this._currentItemNode = dojo.create("div",{}, nextItemNode, "replace");
-                this._currentItemDataItem.playerInstance = new dojox.av.FLVideo({mediaUrl:this._currentItemDataItem.itemSrc["flv"]}, this._currentItemNode);
+                if(this._autoPlayWhenShown === "true"){
+                        if(!this._currentItemDataItem.playerInstance){
+                            this._currentItemNode = dojo.create("div",{}, nextItemNode, "replace");            
+                            this._currentItemDataItem.playerInstance = new dojox.av.FLVideo({mediaUrl:this._currentItemDataItem.itemSrc["flv"], autoPlay:true, isDebug:true}, this._currentItemNode);                        
+                        }
+                } else {
+                    //autoplay is a tricky one when considering the flash player. fix this.
+                    this._currentItemNode = dojo.create("div",{}, nextItemNode, "replace");            
+                    this._currentItemDataItem.playerInstance = new dojox.av.FLVideo({mediaUrl:this._currentItemDataItem.itemSrc["flv"]}, this._currentItemNode);
+                    var that = this;
+                    this._currentItemDataItem.playerInstance.onLoad = function(){
+                        setTimeout(function() {
+                            that._currentItemDataItem.playerInstance.play();
+                            that._currentItemDataItem.playerInstance.pause();
+                            that._currentItemDataItem.playerInstance.seek(0);    
+                        }, 100);
+                    };
+
+                }
             }
+
+            if(this._autoPlayWhenShown === "true"){
+                if(this._playerType === "html5"){
+                    this._currentItemDataItem.playerInstance.play();
+                } 
+            }
+
+
+
+            //firefox does NOT support the "loop" attribute. we shall fix this.
+            if(this._loopVideo == "true"){
+                this.disconnectHandlersWhenItemIsChanged.push(dojo.connect(this._currentItemDataItem.playerInstance, "ended", this, function(){var hitched = dojo.hitch(this, function(){this._currentItemDataItem.playerInstance.play();});setTimeout(function() {hitched();}, 100);}));
+                this.disconnectHandlersWhenItemIsChanged.push(dojo.connect(this._currentItemDataItem.playerInstance, "onEnd", this, function(){var hitched = dojo.hitch(this, function(){this._currentItemDataItem.playerInstance.seek(0); this._currentItemDataItem.playerInstance.play();});setTimeout(function() {hitched();}, 100);}));
+            }
+
         } else {
-                this._currentItemNode = nextItemNode;
+            this._currentItemNode = nextItemNode;
         }
 
         this._currentIndex = index;
@@ -456,16 +507,16 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
 
         var video = document.createElement("video");
         var type = this._isHostType(video, "canPlayType");
+        if(!type){return "flash";}
+        //Test ripped out of modernizr & has.js
         // note: in FF 3.5.1 and 3.5.0 only, "no" was a return value instead of empty string.
-        console.debug(type);
-        if(type == "html5"){
-            //check if we REALLY can play html5 video. "maybie" is not enough evidently.
-            if((video.canPlayType('video/mp4') == "probably") || (video.canPlayType('video/ogv') == "probably") || (video.canPlayType('video/webm') == "probably")){
-
-                return "html5";
-            }
+        //check if we REALLY can play html5 video. "maybie" is not enough evidently. I'm looking at YOU, IE9!! 
+        // Workaround required for IE9, which doesn't report video support without audio codec specified.
+        //   bug 599718 @ msft connect
+                
+        if((video.canPlayType('video/ogg; codecs="theora"') == "probably") || (video.canPlayType('video/mp4; codecs="avc1.42E01E"') == "probably") || (video.canPlayType('video/mp4; codecs="avc1.42E01E, mp4a.40.2"') == "probably") || (video.canPlayType('video/webm; codecs="vp8, vorbis"') == "probably")){
+            return "html5";
         }
-
         return "flash";
 
     },
@@ -618,13 +669,16 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         var deferreds = new dojo.DeferredList([this.getWidthFromItem(oArgs.currentNode), this.getHeightFromItem(oArgs.currentNode)]);
         var hitched_createIncrementalIndexBySet = dojo.hitch(this, "_createIncrementalIndexBySet", oArgs.setName);
         var hitchedGetSourceForNode = dojo.hitch(this, "getSourceForNode", oArgs.currentNode);
+        var hitched_createIncrementalSetIndex = dojo.hitch(this, "_createIncrementalSetIndex");
         var index = hitched_createIncrementalIndexBySet();
+        var setIndex = hitched_createIncrementalSetIndex();
         dojo.when(deferreds,
         function(results) {
             var dataItem = {
                 id: oArgs.currentID,
                 setName: oArgs.setName,
                 index: index,
+                setIndex: setIndex,
                 itemSrc: hitchedGetSourceForNode(),
                 itemWidth: results[0][1],
                 itemHeight: results[1][1],
@@ -712,7 +766,7 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
                 
             //ie hack: 
             if(dojo.attr(subnode, "src")){
-                sources[dojo.attr(subnode, "type").split("/")[1]] = dojo.attr(subnode, "src");    
+                sources[dojo.attr(subnode, "type").split("/")[1]] = dojo.attr(subnode, "src");
             }
 
             },
@@ -731,6 +785,7 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
     },
 
     _createIncrementalIndexBySet: function(setName) {
+        //create an incremental id for each item within each set. 
         if (this.debuggingMode) {
             console.debug("_createIncrementalIndexBySet");
         }
@@ -741,6 +796,17 @@ dojo.declare("dojox.image.Carousel", [dijit._Widget, dijit._Templated], {
         }
         this._incrementalIndexBySet[setName].indexPos = this._incrementalIndexBySet[setName].indexPos + 1;
         return this._incrementalIndexBySet[setName].indexPos;
+    },
+    
+    _createIncrementalSetIndex: function(){
+        //create an incremental index for each set, allowing us to deal with asyncness issues
+        if (this.debuggingMode) {
+            console.debug("_createIncrementalSetIndex");
+        }
+
+        if(!this.setIndex){this.setIndex = 0};
+        this.setIndex = this.setIndex + 1;
+        return this.setIndex;
     },
 
     _addDataFromStore: function(storeId) {
