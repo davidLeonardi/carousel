@@ -1,0 +1,156 @@
+<html>
+
+	<head>
+		<script src="http://ajax.googleapis.com/ajax/libs/dojo/1.6/dojo/dojo.xd.js" charset="utf-8" data-dojo-config="parseOnLoad:true"></script>
+		
+		<script type="text/javascript" charset="utf-8">
+			dojo.require("dojo.parser");
+			dojo.require("dojox.image.Carousel");
+		</script>
+		
+		<style type="text/css" media="screen">
+			body{
+				margin:0;
+				padding:0;
+				border:"none";
+			}
+
+			div{
+				margin:0;
+				padding:0;
+				border:"none";
+			}
+
+		</style>
+	</head>
+
+	<body>
+		<div style="width: 100%; height: 100%">
+
+			<div id="myCarousel" data-dojo-type="dojox.image.Carousel" data-dojo-props="'class':'backgroundCarousel', initialSet:'set2'">
+
+				<div class="carouselImage" data-carousel-set-name="set1">
+					<img src="1.jpg" alt="foo1" />
+					<div class="imageMetadata">
+						<span data-carousel-meta-type="title" class="metaType1">
+							foo
+						</span>
+						<span data-carousel-meta-type="description" class="metaType2">
+							bar
+						</span>
+					</div>
+				</div>
+				<div class="carouselImage" data-carousel-set-name="set1">
+					<img src="2.jpg" alt="foo2" />
+					<div class="imageMetadata">
+						<span data-carousel-meta-type="title" class="metaType1">
+							foo2
+						</span>
+						<span data-carousel-meta-type="description" class="metaType2">
+							bar2
+						</span>
+					</div>
+				</div>
+				<div class="carouselImage" data-carousel-set-name="set1">
+					<img src="3.jpg" alt="foo3" />
+					<div class="imageMetadata">
+						<span data-carousel-meta-type="title" class="metaType1">
+							foo3
+						</span>
+						<span data-carousel-meta-type="description" class="metaType2">
+							bar3
+						</span>
+					</div>
+				</div>
+				<div class="carouselImage" data-carousel-set-name="set2">
+					<img src="2.jpg" alt="foo1" />
+					<div class="imageMetadata">
+						<span data-carousel-meta-type="title" class="metaType1">
+							foo
+						</span>
+						<span data-carousel-meta-type="description" class="metaType2">
+							bar
+						</span>
+					</div>
+				</div>
+				<div class="carouselImage" data-carousel-set-name="set2">
+					<img src="1.jpg" alt="foo2" />
+					<div class="imageMetadata">
+						<span data-carousel-meta-type="title" class="metaType1">
+							foo2
+						</span>
+						<span data-carousel-meta-type="description" class="metaType2">
+							bar2
+						</span>
+					</div>
+				</div>
+				<div class="carouselImage" data-carousel-set-name="set2">
+					<img src="3.jpg" alt="foo3" />
+					<div class="imageMetadata">
+						<span data-carousel-meta-type="title" class="metaType1">
+							foo3
+						</span>
+						<span data-carousel-meta-type="description" class="metaType2">
+							bar3
+						</span>
+					</div>
+				</div>
+				<div class="carouselImage" data-carousel-set-name="set3">
+					<img src="3.jpg" alt="foo1" />
+					<div class="imageMetadata">
+						<span data-carousel-meta-type="title" class="metaType1">
+							foo
+						</span>
+						<span data-carousel-meta-type="description" class="metaType2">
+							bar
+						</span>
+					</div>
+				</div>
+				<div class="carouselImage" data-carousel-set-name="set3">
+					<img src="1.jpg" alt="foo2" />
+					<div class="imageMetadata">
+						<span data-carousel-meta-type="title" class="metaType1">
+							foo2
+						</span>
+						<span data-carousel-meta-type="description" class="metaType2">
+							bar2
+						</span>
+					</div>
+				</div>
+				<div class="carouselImage" data-carousel-set-name="set3">
+					<img src="2.jpg" alt="foo3" />
+					<div class="imageMetadata">
+						<span data-carousel-meta-type="title" class="metaType1">
+							foo3
+						</span>
+						<span data-carousel-meta-type="description" class="metaType2">
+							bar3
+						</span>
+					</div>
+				</div>
+				
+			</div>
+			
+			<div id="controls" style="z-index: 1000, position: fixed, bottom: 10px, left: 0px">
+
+				<h1 id="gotoset1">Go to set 1!<h1>
+				<h1 id="gotoset2">Go to set 2!<h1>
+				<h1 id="gotoset3">Go to set 3!<h1>					
+				<h2 id="shownext">Prev Image</h2>
+				<h2 id="showprev">Next Image</h2>				
+
+
+				<script type="text/javascript" charset="utf-8">
+					dojo.connect(dojo.byId("gotoset1"), "onclick", null, function(){dijit.byId('myCarousel').applyImageSet({setName:'set1'})});
+					dojo.connect(dojo.byId("gotoset2"), "onclick", null, function(){dijit.byId('myCarousel').applyImageSet({setName:'set2'})});
+					dojo.connect(dojo.byId("gotoset3"), "onclick", null, function(){dijit.byId('myCarousel').applyImageSet({setName:'set3'})});
+					dojo.connect(dojo.byId("shownext"), "onclick", null, function(){dijit.byId('myCarousel').showPrev()});
+					dojo.connect(dojo.byId("showprev"), "onclick", null, function(){dijit.byId('myCarousel').showNext()});
+
+				</script>
+
+			</div>
+			
+		</div>
+	</body>
+<html>
