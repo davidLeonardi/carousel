@@ -16,8 +16,12 @@ dojo.declare("dojox.image.CarouselSingleImageView", [dijit._Widget, dijit._Templ
     //how many images in its range should this image preload
     preloadAssetRange: 3,
 
-    //which index of a set to preload initially
-    PreloadAssetIndexesOfSet: [1],
+    constructor: function(){
+        //event handlers for something or other, investigate WTF
+        this.disconnectHandlersWhenItemIsChanged = [];
+        //which index of a set to preload initially
+        preloadAssetIndexesOfSet: [1];
+    },
 
     startup: function(oArgs){
         this.inherited(arguments);
@@ -184,7 +188,6 @@ dojo.declare("dojox.image.CarouselSingleImageView", [dijit._Widget, dijit._Templ
         }
         this.showIndex(newIndex);
     },
-    
 
     _resizeItemNode: function(container, h, w) {
         if (dojo.config.isDebug) {

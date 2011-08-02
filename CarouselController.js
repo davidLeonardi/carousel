@@ -4,18 +4,11 @@ dojo.require("dojo.fx");
 dojo.require("dojox.fx");
 dojo.require("dijit._Widget");
 dojo.require("dijit._Templated");
-dojo.require("dojo.string");
 dojo.require("dojo.DeferredList");
-dojo.declare("dojox.image.CarouselController", [dijit._Widget], {
+dojo.require("dojox.image.CarouselAssetLoader");
+dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated], {
     // summary:
     //		The controller class of the media carousel
-    // pubsub topics:
-    //      ready:
-    //          summary: published by .startup()'s completition of deferred processes
-    //          message: emtpy
-    //      setLoaded:
-    //          summary: published by .useSet() when a set is ready to be used
-    //          message: setName(String): name of topic
 
     //our template path... move this to define() eventually.
     templateString: dojo.cache("dojox.image", "resources/Carousel.html"),
@@ -27,101 +20,68 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget], {
 
     jsonUrl: false,
 
-    _defaultSet: "defaultSet",
+    defaultSet: "defaultSet",
 
     constructor: function() {
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "constructor");
         }
         this._incrementalIndexBySet = {};
-        this.queue = [];
-        this.listeners = [];
-        this.disconnectHandlersWhenItemIsChanged = [];
-        this._listenerTopics = ["ready", "setLoaded"];
         this.preloadAssetsOfSet = [];
-        
-        this.watch("PreloadAssetRange", handlePreloadRangeChange);
-        this.watch("PreloadAssetIndexesOfSet", handlePreloadAssetIndexesOfSetChange);
+        this._supportingWidgets = [];
+//        this.watch("PreloadAssetRange", handlePreloadRangeChange);
+//        this.watch("PreloadAssetIndexesOfSet", handlePreloadAssetIndexesOfSetChange);
     },
 
     startup: function() {
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "startup");
         }
-        if (this._started) {
+        if (this.get("started")) {
             return;
         }
         //run inheritance chain
         this.inherited(arguments);
 
-        //DeferredList object where all deferred's land in
-        var deferredList;
-        //list of all deferreds
-        var listOfDeferreds = [];        
-        //name of set to use
-        var setName;
         //hitched function to change the active set
-        var hitchedUseSet;
-        //alias of the widget ID to used outside of this scope
         var widgetId = this.id;
 
-        dojo.forEach(this._listenerTopics, function(topic, index) {
-            this._listenerTopics[index] = this.id + "_" + topic;
-        }, this);
-
-        //Start up the event queue manager
-        this._queueManager = new dojox.image.CarouselQueue(this._listenerTopics);
-        this._supportingWidgets.push(this._queueManager);
 
         //instantiate the asset loader
-        this.assetLoader = new dojox.image.CarouselAssetLoader(this);
+        this.assetLoader = new dojox.image.CarouselAssetLoader({controllerWidget : this});
         this._supportingWidgets.push(this.assetLoader);
 
-        //if we have children domnodes treat them as data sources and parse them
-        if (this.domNode.childNodes.length >= 1) {
-            listOfDeferreds.push(this.assetLoader.addData({
-                node: this.domNode
-            }));
+        this.loadData();
+        
+        //place this in the correct place
+        //todo!
+//        this.useSet({setName: initialSet});
+
+        this.set("started", true);
+    },
+
+    loadData: function(){
+        //initiate loading of assets. Check if we have a DOM structure as child nodes, a passed store ID or a JSON file URL. 
+        var domNode;
+        var dataStore;
+        var jsonURL;
+        if(this.containerNode.childNodes){
+            if (this.containerNode.childNodes.length >= 1){
+                domNode = this.containerNode;
+            }
         }
-
-        /*        //ditto if we received a datasore id
-         if (this.dataStoreId) {
-             defList.push(this.addData({
-                 store: this.dataStoreId
-             }));
-         }
-
-         //or a json
-         if (this.jsonUrl) {
-             defList.push(this.addData({
-                 url: this.jsonUrl
-             }));
-         }
- */
-
-        //we've got lots of async processes. Lets leverage on deferredLists to manage this in a decent way.
-        deferredList = new dojo.DeferredList(listOfDeferreds);
-        setName = this.initialSet || this._defaultSet;
-        hitchedUseSet = dojo.hitch(this, "useSet", {
-            setName: setName
+        if(this.dataStoreId){
+            dataStore = dataStoreId;
+        }
+        if(this.jsonUrl){
+            jsonURL = this.jsonUrl;
+        }
+        
+        this.assetLoader.addData({
+            node: domNode,
+            store: dataStore,
+            url: jsonURL
         });
-
-        deferreds.then(function() {
-            if (dojo.config.isDebug) {
-                console.debug(this.id + ": " + "Done adding dataitems. Showing something now.");
-            }
-            //apply the dataset to be used and autoshow first item
-            hitchedUseSet();
-            if (hitchedMonitorParent) {
-                hitchedMonitorParent();
-            }
-            dojo.publish(widgetId + "_ready", [{
-                ready: "ready"
-            }]);
-
-        });
-
-        this.set("Started", true);
     },
 
     registerView: function(viewWidget){
@@ -279,6 +239,7 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget], {
 
     },
 
+
     onChange: function() {
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "onChange");
@@ -301,11 +262,12 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget], {
         this.onItemSetChange();
     },
 
-    _setStartedAttr: function() {
-        this._set("Started", true);
-    },
-    
+
     //setter methods
+
+    _setStartedAttr: function() {
+        this._set("started", true);
+    },
 
     _setPreloadAssetRangeAttr: function(newPreloadAssetRange){
         this._set("PreloadAssetRange", newPreloadAssetRange);
@@ -325,10 +287,7 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget], {
         this.assetLoader.updatePreloadRange();
     },
 
-    //utility functions
-    isStarted: function() {
-        return this.started || false;
-    },
+    //utilities
 
     returnUniqueItems: function(array){
        var a = array.concat();
