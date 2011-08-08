@@ -29,8 +29,8 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
         this._incrementalIndexBySet = {};
         this.preloadAssetsOfSet = [];
         this._supportingWidgets = [];
-//        this.watch("PreloadAssetRange", handlePreloadRangeChange);
-//        this.watch("PreloadAssetIndexesOfSet", handlePreloadAssetIndexesOfSetChange);
+        this.watch("preloadAssetRange", this.handlePreloadRangeChange);
+        this.watch("preloadAssetIndexesOfSet", this.handlePreloadAssetIndexesOfSetChange);
     },
 
     startup: function() {
@@ -86,9 +86,9 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
 
     registerView: function(viewWidget){
         if(viewWidget.preloadAssetRange > this.preloadAssetRange){
-            this.set("PreloadAssetRange", viewWidget.preloadAssetRange);
+            this.set("preloadAssetRange", viewWidget.preloadAssetRange);
         }
-        this.set(PreloadAssetIndexesOfSet, this.returnUniqueItems(this.PreloadAssetIndexesOfSet.concat(viewWidget.PreloadAssetIndexesOfSet)));
+        this.set("preloadAssetIndexesOfSet", this.returnUniqueItems(this.get(preloadAssetIndexesOfSet).concat(viewWidget.preloadAssetIndexesOfSet)));
     },
 
     //public methods relative to ITEMS
@@ -98,7 +98,7 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "getCurrentIndex");
         }
-        //public function to return current item index
+        //public method to return current item index
         return (this._currentIndex);
     },
 
@@ -106,16 +106,15 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "getCurrentItemDataItem");
         }
-        //public function to return info about the current item.
+        //public method to return info about the current item.
         return (this._currentItemDataItem);
     },
-
 
     getCurrentItems: function() {
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "getCurrentItems");
         }
-        //public function to return current items in the current set
+        //public method to return current items in the current set
         return (this._internalDataStore.query(this._itemSetStoreQuery, {
             sort: [{
                 attribute: "index"
@@ -127,7 +126,7 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "getItemsBySet");
         }
-        //public function to return all items within a specified set
+        //public method to return all items within a specified set
         return (this._internalDataStore.query({
             setName: setName
         },
@@ -142,18 +141,55 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "getItemBySetAndIndex");
         }
-        //public function to return an [] containing a specific item by index and set
+        //public method to return an [] containing a specific item by index and set
         return this._internalDataStore.query({
             setName: setName,
             index: index
         });
+    },
+    
+    getNextDataItemFromDataItem: function(dataItem, loop){
+        //public method to get the next item by index from a specific dataitem
+        //dataItem: data object of an asset
+        //loop: boolean, indicates if indices should be looped together by considering the first item the next item after the last, and vice versa
+        var setIndex = dataItem.setIndex + 1;
+        var setName = dataItem.setName;
+        var nextItem;
+
+        nextItem = this.assetLoader.assetStore.query({setName: setName, setIndex: setIndex})[0];
+
+        if(!nextItem && loop){
+            nextItem = this.assetLoader.assetStore.query({setName: setName, setIndex: 1})[0];
+        }
+
+        return nextItem;
+    },
+
+    getPreviousDataItemFromDataItem: function(dataItem){
+        //public method to get the previous item by index from a specific dataitem
+        //dataItem: data object of an asset
+        //loop: boolean, indicates if indices should be looped together by considering the first item the next item after the last, and vice versa
+
+        var setIndex = dataItem.setIndex - 1;
+        var setName = dataItem.setName;
+        var prevItem;
+        var setLength;
+
+        prevItem = this.assetLoader.assetStore.query({setName: setName, setIndex: setIndex})[0];
+
+        if(!prevItem && loop){
+            setLength = this.assetLoader.assetStore.query().lenth;
+            nextItem = this.assetLoader.assetStore.query({setName: setName, setIndex: (setLength - 1)})[0];
+        }
+
+        return prevItem;
     },
 
     getCurrentMetaData: function() {
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "getCurrentMetaData");
         }
-        //public function to return the metadata object for the current dataItem
+        //public method to return the metadata object for the current dataItem
         return (this._currentItemDataItem.metaData);
     },
 
@@ -174,7 +210,7 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "getCurrentSet");
         }
-        //public function to return current name of set
+        //public method to return current name of set
         return (this._itemSetStoreQuery.setName);
     },
 
@@ -182,7 +218,7 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "getSets");
         }
-        //public function to return [] of available set names
+        //public method to return [] of available set names
         var items = [];
         dojo.forEach(this._internalDataStore.query({},
         {
@@ -213,7 +249,7 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "useSet");
         }
-        //public function to apply an items set.
+        //public method to apply an items set.
         //  oArgs:
         //      setName : string. name of the itemSet
         //      indexStart: When autoshowing, show item at index specified
@@ -270,11 +306,11 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
     },
 
     _setPreloadAssetRangeAttr: function(newPreloadAssetRange){
-        this._set("PreloadAssetRange", newPreloadAssetRange);
+        this._set("preloadAssetRange", newPreloadAssetRange);
     },
     
     _setPreloadAssetIndexesOfSetAttr: function(newPreloadAssetIndexesOfSet){
-        this._set("PreloadAssetIndexesOfSet", newPreloadAssetIndexesOfSet);
+        this._set("preloadAssetIndexesOfSet", newPreloadAssetIndexesOfSet);
     },
 
     //event handlers

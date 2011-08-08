@@ -19,6 +19,15 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
     //incremental ID for assets, is a progressive integer for now
     _incrementalId: 0,
 
+    //maximum amount of connections per hostname per browser we want to use. We play nice, so we leave at least one connection available.
+    //All other browsers have 6 connections per host, so we'll use 5 by default.
+    _maxConnectionsPerHostIE: {
+        6: 1,
+        7: 1,
+        8: 5,
+        9: 5
+    },
+
     constructor: function(oArgs) {
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "constructor");
@@ -29,6 +38,14 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
         this.assetStore = new dojo.store.Memory();
         //store an incremental index for each item in a set
         this._incrementalIndexBySet = {};
+        if(dojo.isIE){
+            this.maxConnections = this._maxConnectionsPerHostIE[dojo.isIE];
+        } else {
+            this.maxConnections = 5;
+        }
+        this.currentLoadProcesses = [];
+        this.postponedLoadProcesses = [];
+
     },
 
     addData: function(oArgs) {
@@ -164,8 +181,71 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
         });
         
         dojo.forEach(assetsToLoad, function(asset){
-            this.loadAsset(asset);
+            this.addToLoadQueue(asset);
         }, this);
+    },
+
+	addToLoadQueue: function(assetDataItem, isRequired){
+		//add a load request to the loading queue. The loader will start up as many loader processes at the same time as the maximum connection per host setting allows.
+        if (dojo.config.isDebug) {
+            console.debug(this.id + ": " + "addToLoadQueue");
+        }
+        //if we've already loaded the asset previously, return the already resolved deferred and stop.
+        if(assetDataItem.isLoaded === true){return assetDataItem.itemLoader;}
+
+		var currentQueueLength = this.getLengthOfObject(this.currentLoadProcesses);
+		
+        assetDataItem.itemLoader = new dojo.Deferred();
+		
+		//add to the loader queue or add to the postponed queue?
+		if(currentQueueLength < this.maxConnections) {
+			//add to the loader queue
+			this.currentLoadProcesses[assetDataItem.id] = assetDataItem.itemLoader;
+			//set the callback when the loader completes
+			assetDataItem.itemLoader.then(dojo.hitch(this, "handleLoaderQueueItemDone", assetDataItem));
+
+			//load the asset now
+			this.loadAsset(assetDataItem);
+		} else {
+			//add to the postponed queue
+			this.postponedLoadProcesses.push({assetDataItem: assetDataItem, isRequired: isRequired});
+			console.warn("queue was full, postponing " + assetDataItem.id);
+		}
+
+        //put to store now, so that we have an unresolved deferred if some other loader comes looking for it
+        this._putItemtoStore(assetDataItem);
+
+		return assetDataItem.itemLoader;
+	},
+
+	handleLoaderQueueItemDone: function(assetDataItem){
+		//event handler for when an item in the loader queue completes.
+		//here we remove the loader object from the queue, and insert the first item we find in the prioritized postponed queue into the loader queue.
+		delete this.currentLoadProcesses[assetDataItem.id];
+		if(this.postponedLoadProcesses.length > 0){
+			console.warn("getting item from queue");
+			this.postponedLoadProcesses = this.prioritizeQueue(this.postponedLoadProcesses);
+			this.addToLoadQueue(this.postponedLoadProcesses.shift());
+		}
+	},
+
+    prioritizeQueue: function(queue){
+        //check if we have a dataItem flagged as "required" in the postponed list. 
+        //if we do, move it to the beginning and leave the order of other elements untouched
+        var result = [];
+        var i;
+        
+        for (i = 0; i < queue.length; i++) {
+          if (queue[i].isRequired === true) {
+            result.push(queue[i]);
+          }
+        }
+        for (i = 0; i < queue.length; i++) {
+          if (!queue[i].isRequired === true) {
+            result.push(queue[i]);
+          }
+        }  
+        return result;
     },
 
     loadAsset: function(assetDataItem){
@@ -173,30 +253,59 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "loadAsset " + assetDataItem);
         }
+        //if we've already loaded the asset previously, return the already resolved deferred and stop.
+        if(assetDataItem.isLoaded == true){return assetDataItem.itemLoader;}
+
         if(assetDataItem.itemType.toLowerCase() === "img"){
             var tempImage = new Image();
             var itemWidth;
             var itemHeight;
-            assetDataItem.itemLoader = new dojo.Deferred();
-            //put now, so that we have an unresolved deferred if some other loader comes looking for it
-            this._putItemtoStore(assetDataItem);
 
+            //the image exists and gets loaded successfully
+            //fixme: disconnect later as it will end up with a bunch of stale connects
             dojo.connect(tempImage, "onload", this, function() {
                 //fill in additional properties of the asset
                 assetDataItem.itemWidth = tempImage.width;
                 assetDataItem.itemHeight = tempImage.height;
                 assetDataItem.itemIsLoaded = true;
                 delete tempImage;
-                //resolve the previously putted deferred
+                //resolve the deferred
+                console.debug("loaded id: " + assetDataItem.id);
                 assetDataItem.itemLoader.resolve("loaded");
+                
+                //If the item is lazy load, or has no src attribute, set the SRC attribute
+                if(!dojo.attr(assetDataItem.itemNode, "src")){
+                    dojo.attr(assetDataItem.itemNode, "src", assetDataItem.itemSrc);
+                } 
                 //and sync the final state
                 this._putItemtoStore(assetDataItem);
             });
+            
+            //the image doesnt exist or some other error occurs: replace the image with a placeholder 404 image
+            dojo.connect(tempImage, "onerror", this, function(evt) {
+                delete tempImage;
+                console.error(evt);
+                assetDataItem.itemWidth = 320;
+                assetDataItem.itemHeight = 240;
+                assetDataItem.itemSrc = dojo.moduleUrl("dojox.image").path + "resources/images/404.png";
+                assetDataItem.itemLoader.resolve("notFound");
+                //If the item is lazy load, or has no src attribute, set the SRC attribute
+                if(dojo.attr(!assetDataItem.itemNode, "src")){
+                    dojo.attr(assetDataItem.itemNode, "src", assetDataItem.itemSrc);
+                } 
+
+                this._putItemtoStore(assetDataItem);
+            });
+            
         //start loading the image now that we have something set up listening for the load event
         tempImage.src = assetDataItem.itemSrc;
 
         } else {
             //video or who knows what.. treat it all the same for now
+            assetDataItem.itemLoader = new dojo.Deferred();
+            assetDataItem.itemIsLoaded = true;
+            assetDataItem.itemLoader.resolve("loaded");
+            this._putItemtoStore(assetDataItem);
         }
 
         return assetDataItem.itemLoader;
@@ -314,5 +423,14 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
         }
         //private function to update a single item to a store
         this.assetStore.put(item);
-    }
+    },
+
+	getLengthOfObject: function(object) {
+		//utility function to return the length of an object. 
+		var itemLength = 0;
+		for (key in object) {
+			itemLength = itemLength + 1;
+		}
+		return itemLength;
+	}
 });
