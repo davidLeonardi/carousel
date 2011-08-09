@@ -14,23 +14,22 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
     templateString: dojo.cache("dojox.image", "resources/Carousel.html"),
 
     //set with which to use as default one
-    initialSet: null,
+    initialCollection: null,
 
     dataStore: false,
 
     jsonUrl: false,
 
-    defaultSet: "defaultSet",
+    defaultCollection: "defaultCollection",
 
     constructor: function() {
         if (dojo.config.isDebug) {
-            console.debug(this.id + ": " + "constructor");
+            console.debug("CarouselController: constructor");
         }
-        this._incrementalIndexBySet = {};
-        this.preloadAssetsOfSet = [];
+        this._incrementalIndexByCollection = {};
+        this.preloadAssetsOfCollection = [];
         this._supportingWidgets = [];
-        this.watch("preloadAssetRange", this.handlePreloadRangeChange);
-        this.watch("preloadAssetIndexesOfSet", this.handlePreloadAssetIndexesOfSetChange);
+        this.views = [];
     },
 
     startup: function() {
@@ -43,7 +42,7 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
         //run inheritance chain
         this.inherited(arguments);
 
-        //hitched function to change the active set
+        //hitched function to change the active collection
         var widgetId = this.id;
 
 
@@ -52,15 +51,29 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
         this._supportingWidgets.push(this.assetLoader);
 
         this.loadData();
-        
-        //place this in the correct place
-        //todo!
-//        this.useSet({setName: initialSet});
 
+        this._setInitialState();
+        
         this.set("started", true);
+    },
+    
+    _setInitialState: function(){
+        if (dojo.config.isDebug) {
+            console.debug(this.id + ": " + "_setInitialState");
+        }
+        
+        this.initialCollection = this.initialCollection || this.getCollections()[0];
+        this.initialIndex = this.initialIndex || 1;
+        this.set("currentCollectionName", this.initialCollection);
+        this.set("currentIndex", this.initialIndex);
+        this.set("currentDataItem", this.getItemByCollectionAndIndex(this.initialCollection, this.initialIndex));
     },
 
     loadData: function(){
+        if (dojo.config.isDebug) {
+            console.debug(this.id + ": " + "loadData");
+        }
+
         //initiate loading of assets. Check if we have a DOM structure as child nodes, a passed store ID or a JSON file URL. 
         var domNode;
         var dataStore;
@@ -85,106 +98,87 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
     },
 
     registerView: function(viewWidget){
-        if(viewWidget.preloadAssetRange > this.preloadAssetRange){
-            this.set("preloadAssetRange", viewWidget.preloadAssetRange);
+        if (dojo.config.isDebug) {
+            console.debug(this.id + ": " + "registerView");
         }
-        this.set("preloadAssetIndexesOfSet", this.returnUniqueItems(this.get(preloadAssetIndexesOfSet).concat(viewWidget.preloadAssetIndexesOfSet)));
+
+        this.views.push(viewWidget);
+        viewWidget.set("currentIndex", this.get("currentIndex"));
+        viewWidget.set("currentCollection", this.get("currentCollection"));
+    },
+
+    //event handlers
+    
+
+    //todo: create SETTER methods for:
+    // - index
+    // - collection
+    // - current data item
+
+    getCurrentIndexAttr: function(){
+        if (dojo.config.isDebug) {
+            console.debug(this.id + ": " + "getCurrentIndexAttr");
+        }
+        return this._currentIndex;
+    },
+
+    setCurrentIndexAttr: function(index){
+        if (dojo.config.isDebug) {
+            console.debug(this.id + ": " + "setCurrentIndexAttr");
+        }
+
+      this._set("_currentIndex", index);
+    },
+
+    setCurrentCollectionNameAttr: function(collectionName){
+        //setter method to set the current collection
+        //collectionName : string. name of the item collection
+        if (dojo.config.isDebug) {
+            console.debug(this.id + ": " + "setCurrentCollectionNameAttr");
+        }
+
+        //do nothing if we're switching to the current collection
+        if (this.get("_currentCollectionName") === collectionName) {return;}
+
+        this._set("_currentCollectionName", collectionName);
+    },
+
+    getCurrentCollectionNameAttr: function(){
+        if (dojo.config.isDebug) {
+            console.debug(this.id + ": " + "getCurrentCollectionNameAttr");
+        }
+
+        return this._currentCollectionName;
+    },
+    
+    setCurrentDataItemAttr: function(dataItem){
+        if (dojo.config.isDebug) {
+            console.debug(this.id + ": " + "setCurrentDataItemAttr");
+        }
+
+        this._set("_currentDataItem", dataItem);
+    },
+
+    getCurrentDataItemAttr: function(){
+        if (dojo.config.isDebug) {
+            console.debug(this.id + ": " + "getCurrentDataItemAttr");
+        }
+        return this._currentDataItem;
     },
 
     //public methods relative to ITEMS
-
-
-    getCurrentIndex: function() {
-        if (dojo.config.isDebug) {
-            console.debug(this.id + ": " + "getCurrentIndex");
-        }
-        //public method to return current item index
-        return (this._currentIndex);
-    },
-
-    getCurrentItemDataItem: function() {
-        if (dojo.config.isDebug) {
-            console.debug(this.id + ": " + "getCurrentItemDataItem");
-        }
-        //public method to return info about the current item.
-        return (this._currentItemDataItem);
-    },
-
     getCurrentItems: function() {
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "getCurrentItems");
         }
-        //public method to return current items in the current set
-        return (this._internalDataStore.query(this._itemSetStoreQuery, {
+        //public method to return current items in the current collection
+        return (this.assetLoader.assetStore.query({collectionName: this.get("currentCollectionName")}, {
             sort: [{
                 attribute: "index"
             }]
         }));
-    },
-
-    getItemsBySet: function(setName) {
-        if (dojo.config.isDebug) {
-            console.debug(this.id + ": " + "getItemsBySet");
-        }
-        //public method to return all items within a specified set
-        return (this._internalDataStore.query({
-            setName: setName
-        },
-        {
-            sort: [{
-                attribute: "index"
-            }]
-        }));
-    },
-
-    getItemBySetAndIndex: function(setName, index) {
-        if (dojo.config.isDebug) {
-            console.debug(this.id + ": " + "getItemBySetAndIndex");
-        }
-        //public method to return an [] containing a specific item by index and set
-        return this._internalDataStore.query({
-            setName: setName,
-            index: index
-        });
     },
     
-    getNextDataItemFromDataItem: function(dataItem, loop){
-        //public method to get the next item by index from a specific dataitem
-        //dataItem: data object of an asset
-        //loop: boolean, indicates if indices should be looped together by considering the first item the next item after the last, and vice versa
-        var setIndex = dataItem.setIndex + 1;
-        var setName = dataItem.setName;
-        var nextItem;
-
-        nextItem = this.assetLoader.assetStore.query({setName: setName, setIndex: setIndex})[0];
-
-        if(!nextItem && loop){
-            nextItem = this.assetLoader.assetStore.query({setName: setName, setIndex: 1})[0];
-        }
-
-        return nextItem;
-    },
-
-    getPreviousDataItemFromDataItem: function(dataItem){
-        //public method to get the previous item by index from a specific dataitem
-        //dataItem: data object of an asset
-        //loop: boolean, indicates if indices should be looped together by considering the first item the next item after the last, and vice versa
-
-        var setIndex = dataItem.setIndex - 1;
-        var setName = dataItem.setName;
-        var prevItem;
-        var setLength;
-
-        prevItem = this.assetLoader.assetStore.query({setName: setName, setIndex: setIndex})[0];
-
-        if(!prevItem && loop){
-            setLength = this.assetLoader.assetStore.query().lenth;
-            nextItem = this.assetLoader.assetStore.query({setName: setName, setIndex: (setLength - 1)})[0];
-        }
-
-        return prevItem;
-    },
-
     getCurrentMetaData: function() {
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "getCurrentMetaData");
@@ -193,139 +187,139 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
         return (this._currentItemDataItem.metaData);
     },
 
+    getItemsByCollection: function(collectionName) {
+        if (dojo.config.isDebug) {
+            console.debug(this.id + ": " + "getItemsByCollection");
+        }
+        //public method to return all items within a specified collection
+        return (this.assetLoader.assetStore.query({
+            collectionName: collectionName
+        },
+        {
+            sort: [{
+                attribute: "index"
+            }]
+        }));
+    },
+
+    getItemByCollectionAndIndex: function(collectionName, index) {
+        if (dojo.config.isDebug) {
+            console.debug(this.id + ": " + "getItemByCollectionAndIndex");
+        }
+        //public method to return an [] containing a specific item by index and collection
+        return this.assetLoader.assetStore.query({
+            collectionName: collectionName,
+            index: index
+        })[0];
+    },
+    
+    getNextDataItemFromDataItem: function(dataItem, loop){
+        if (dojo.config.isDebug) {
+            console.debug(this.id + ": " + "getNextDataItemFromDataItem");
+        }
+
+        //public method to get the next item by index from a specific dataitem
+        //dataItem: data object of an asset
+        //loop: boolean, indicates if indices should be looped together by considering the first item the next item after the last, and vice versa
+        var collectionIndex = dataItem.collectionIndex + 1;
+        var collectionName = dataItem.collectionName;
+        var nextItem;
+
+        nextItem = this.assetLoader.assetStore.query({collectionName: collectionName, collectionIndex: collectionIndex})[0];
+
+        if(!nextItem && loop){
+            nextItem = this.assetLoader.assetStore.query({collectionName: collectionName, collectionIndex: 1})[0];
+        }
+
+        return nextItem;
+    },
+
+    getPreviousDataItemFromDataItem: function(dataItem, loop){
+        if (dojo.config.isDebug) {
+            console.debug(this.id + ": " + "getPreviousDataItemFromDataItem");
+        }
+
+        //public method to get the previous item by index from a specific dataitem
+        //dataItem: data object of an asset
+        //loop: boolean, indicates if indices should be looped together by considering the first item the next item after the last, and vice versa
+
+        var collectionIndex = dataItem.collectionIndex - 1;
+        var collectionName = dataItem.collectionName;
+        var prevItem;
+        var collectionLength;
+
+        prevItem = this.assetLoader.assetStore.query({collectionName: collectionName, collectionIndex: collectionIndex})[0];
+
+        if(!prevItem && loop){
+            collectionLength = this.assetLoader.assetStore.query().lenth;
+            nextItem = this.assetLoader.assetStore.query({collectionName: collectionName, collectionIndex: (collectionLength - 1)})[0];
+        }
+
+        return prevItem;
+    },
+
     getItemDataItemByIndex: function(index) {
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "getItemDataItemByIndex");
         }
         //returns a data item from the store by an index key query
-        return this._internalDataStore.query(dojo.mixin({
+        return this.assetLoader.assetStore.query(dojo.mixin({
             index: index
         },
-        this._itemSetStoreQuery))[0];
+        {collectionName: this.get("currentCollectionName")}))[0];
     },
 
 
-    //public methods relative to SETS
-    getCurrentSet: function() {
-        if (dojo.config.isDebug) {
-            console.debug(this.id + ": " + "getCurrentSet");
-        }
-        //public method to return current name of set
-        return (this._itemSetStoreQuery.setName);
-    },
+    //public methods relative to COLLECTIONS
 
-    getSets: function() {
+    getCollections: function() {
         if (dojo.config.isDebug) {
-            console.debug(this.id + ": " + "getSets");
+            console.debug(this.id + ": " + "getCollections");
         }
-        //public method to return [] of available set names
+        //public method to return [] of available collection names
         var items = [];
-        dojo.forEach(this._internalDataStore.query({},
+        dojo.forEach(this.assetLoader.assetStore.query({},
         {
             sort: [{
-                attribute: "setIndex"
+                attribute: "collectionIndex"
             }]
         }),
         function(item) {
-            items.push(item.setName);
+            items.push(item.collectionName);
         }
         );
         var j = 0;
-        var itemSets = [];
+        var itemCollections = [];
         var i;
         for (i = 0; i < items.length; i++) {
-            itemSets[j] = items[i];
+            itemCollections[j] = items[i];
             j++;
             if ((i > 0) && (items[i] === items[i - 1])) {
-                itemSets.pop();
+                itemCollections.pop();
                 j--;
             }
         }
-        return (itemSets);
+        return (itemCollections);
     },
 
-
-    useSet: function(oArgs) {
+    onItemCollectionChange: function() {
         if (dojo.config.isDebug) {
-            console.debug(this.id + ": " + "useSet");
+            console.debug(this.id + ": " + "onItemCollectionChange");
         }
-        //public method to apply an items set.
-        //  oArgs:
-        //      setName : string. name of the itemSet
-        //      indexStart: When autoshowing, show item at index specified
-        //      disableAutoShow: boolean. if true disables automatically showing the first item
-        //
-        //do nothing if we're switching to the current set
-        if ((this._itemSetStoreQuery) && (this._itemSetStoreQuery.setName === oArgs.setName)) {
-            return;
-        }
-
-        oArgs.setName = oArgs.setName || this.defaultSet;
-
-        this._itemSetStoreQuery = {
-            setName: oArgs.setName
-        };
-
-
-        if (!oArgs.disableAutoShow) {
-            this.showIndex(oArgs.indexStart || 1);
-        }
-
-        this.onItemSetChange();
-
+        //public event called when the image collection changes, 
+        //FIXME:unwired for now
     },
 
-
-    onChange: function() {
-        if (dojo.config.isDebug) {
-            console.debug(this.id + ": " + "onChange");
-        }
-        //public event
-    },
-
-    onItemSetChange: function() {
-        if (dojo.config.isDebug) {
-            console.debug(this.id + ": " + "onItemSetChange");
-        }
-        //public event called when the image set changes
-    },
-
-    _onItemSetChange: function() {
-        if (dojo.config.isDebug) {
-            console.debug(this.id + ": " + "_onItemSetChange");
-        }
-        //private event called when the image set changes
-        this.onItemSetChange();
-    },
-
-
-    //setter methods
+    //general setter methods
 
     _setStartedAttr: function() {
         this._set("started", true);
     },
 
-    _setPreloadAssetRangeAttr: function(newPreloadAssetRange){
-        this._set("preloadAssetRange", newPreloadAssetRange);
-    },
-    
-    _setPreloadAssetIndexesOfSetAttr: function(newPreloadAssetIndexesOfSet){
-        this._set("preloadAssetIndexesOfSet", newPreloadAssetIndexesOfSet);
-    },
-
-    //event handlers
-    
-    handlePreloadRangeChange: function(){
-        this.assetLoader.updatePreloadRange();
-    },
-    
-    handlePreloadAssetIndexesOfSetChange: function(){
-        this.assetLoader.updatePreloadRange();
-    },
-
     //utilities
 
     returnUniqueItems: function(array){
+        //fixme: unused for now
        var a = array.concat();
        for(var i=0; i<a.length; ++i) {
            for(var j=i+1; j<a.length; ++j) {

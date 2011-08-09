@@ -36,8 +36,8 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
         this.controllerWidget = oArgs.controllerWidget;
         //instantiate internal data store
         this.assetStore = new dojo.store.Memory();
-        //store an incremental index for each item in a set
-        this._incrementalIndexBySet = {};
+        //store an incremental index for each item in a collection
+        this._incrementalIndexByCollection = {};
         if(dojo.isIE){
             this.maxConnections = this._maxConnectionsPerHostIE[dojo.isIE];
         } else {
@@ -89,18 +89,18 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
             var dataItem;
             var assetNode = dojo.query(">", currentNode)[0];
             var currentId = this._createIncrementalId();
-            var setName = dojo.attr(currentNode, "data-carousel-set-name") || this.controllerWidget.defaultSet;
-            var index = this._createIncrementalIndexBySet(setName);
-            var setIndex = this._createIncrementalSetIndex();
+            var collectionName = dojo.attr(currentNode, "data-carousel-collection-name") || this.controllerWidget.defaultCollection;
+            var index = this._createIncrementalIndexByCollection(collectionName);
+            var collectionIndex = this._createIncrementalCollectionIndex();
             var allItemsDeferredList;
 
 
             dataItem = this._dataItemFactory({
                 id: currentId,
                 itemNodeId: currentId,
-                setName: setName,
+                collectionName: collectionName,
                 index: index,
-                setIndex: setIndex,
+                collectionIndex: collectionIndex,
                 itemSrc: this.getSourceForNode(assetNode),
                 itemSrcType: this.getSourceTypeForNode(assetNode),
                 itemType: assetNode.tagName.toLowerCase(),
@@ -140,9 +140,9 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
             //sync stuff
             id: oArgs.id,
             itemNodeId: oArgs.id,
-            setName: oArgs.setName,
+            collectionName: oArgs.collectionName,
             index: oArgs.index,
-            setIndex: oArgs.setIndex,
+            collectionIndex: oArgs.collectionIndex,
             itemSrc: oArgs.itemSrc,
             itemSrcType: oArgs.itemSrcType,
             itemType: oArgs.itemType,
@@ -187,6 +187,7 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
 
 	addToLoadQueue: function(assetDataItem, isRequired){
 		//add a load request to the loading queue. The loader will start up as many loader processes at the same time as the maximum connection per host setting allows.
+
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "addToLoadQueue");
         }
@@ -251,16 +252,17 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
     loadAsset: function(assetDataItem){
         //load an asset and get its width/height properties, then add them to the store.
         if (dojo.config.isDebug) {
-            console.debug(this.id + ": " + "loadAsset " + assetDataItem);
+            console.debug(this.id + ": " + "loading asset: " + assetDataItem.id);
         }
         //if we've already loaded the asset previously, return the already resolved deferred and stop.
         if(assetDataItem.isLoaded == true){return assetDataItem.itemLoader;}
+        //if there already is an asset loader instance, return it and move on
+        if(assetDataItem.itemLoader){return assetDataItem.itemLoade;}
 
         if(assetDataItem.itemType.toLowerCase() === "img"){
             var tempImage = new Image();
             var itemWidth;
             var itemHeight;
-
             //the image exists and gets loaded successfully
             //fixme: disconnect later as it will end up with a bunch of stale connects
             dojo.connect(tempImage, "onload", this, function() {
@@ -271,6 +273,7 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
                 delete tempImage;
                 //resolve the deferred
                 console.debug("loaded id: " + assetDataItem.id);
+                debugger;
                 assetDataItem.itemLoader.resolve("loaded");
                 
                 //If the item is lazy load, or has no src attribute, set the SRC attribute
@@ -299,6 +302,7 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
             
         //start loading the image now that we have something set up listening for the load event
         tempImage.src = assetDataItem.itemSrc;
+        console.debug("setting source to: " + assetDataItem.itemSrc);
 
         } else {
             //video or who knows what.. treat it all the same for now
@@ -361,7 +365,7 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
     updatePreloadRange: function(){
         //check if we've got enough images loaded
         this.PreloadAssetRange = this.controllerWidget.get(PreloadAssetRange);
-        this.PreloadAssetIndexesOfSet = this.controllerWidget.get(PreloadAssetIndexesOfSet);
+        this.PreloadAssetIndexesOfSet = this.controllerWidget.get(PreloadAssetIndexesOfCollection);
         //determine what to load now
         this._toLoadOrNotToLoad();
     },
@@ -376,31 +380,31 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
         return this.id + "_" + this._incrementalId;
     },
 
-    _createIncrementalIndexBySet: function(setName) {
-        //create an incremental id for each item within each set.
-        //private function to generate an incremental index for each set
+    _createIncrementalIndexByCollection: function(collectionName) {
+        //create an incremental id for each item within each collection.
+        //private function to generate an incremental index for each collection
         if (dojo.config.isDebug) {
-            console.debug(this.id + ": " + "_createIncrementalIndexBySet");
+            console.debug(this.id + ": " + "_createIncrementalIndexByCollection");
         }
-        if (!this._incrementalIndexBySet[setName]) {
-            this._incrementalIndexBySet[setName] = {};
-            this._incrementalIndexBySet[setName].indexPos = 0;
+        if (!this._incrementalIndexByCollection[collectionName]) {
+            this._incrementalIndexByCollection[collectionName] = {};
+            this._incrementalIndexByCollection[collectionName].indexPos = 0;
         }
-        this._incrementalIndexBySet[setName].indexPos = this._incrementalIndexBySet[setName].indexPos + 1;
-        return this._incrementalIndexBySet[setName].indexPos;
+        this._incrementalIndexByCollection[collectionName].indexPos = this._incrementalIndexByCollection[collectionName].indexPos + 1;
+        return this._incrementalIndexByCollection[collectionName].indexPos;
     },
 
-    _createIncrementalSetIndex: function() {
-        //create an incremental index for each set, allowing us to deal with asyncness issues
+    _createIncrementalCollectionIndex: function() {
+        //create an incremental index for each collection, allowing us to deal with asyncness issues
         if (dojo.config.isDebug) {
-            console.debug(this.id + ": " + "_createIncrementalSetIndex");
+            console.debug(this.id + ": " + "_createIncrementalCollectionIndex");
         }
 
-        if (!this.setIndex) {
-            this.setIndex = 0;
+        if (!this.collectionIndex) {
+            this.collectionIndex = 0;
         }
-        this.setIndex = this.setIndex + 1;
-        return this.setIndex;
+        this.collectionIndex = this.collectionIndex + 1;
+        return this.collectionIndex;
     },
 
     _addNewItemToStore: function(item) {
