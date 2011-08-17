@@ -109,14 +109,18 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
 
     //getters
     
-    getCurrentIndexAttr: function(){
+    _getCurrentIndexAttr: function(){
+        //get the current asset index
+        //returns: int
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "getCurrentIndexAttr");
         }
         return this._currentIndex;
     },
 
-    getCurrentCollectionNameAttr: function(){
+    _getCurrentCollectionNameAttr: function(){
+        //get the current collection name
+        //returns: string
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "getCurrentCollectionNameAttr");
         }
@@ -124,7 +128,7 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
         return this._currentCollectionName;
     },
     
-    getCollectionsAttr: function() {
+    _getCollectionsAttr: function() {
         //returns an array of the corrent collection names
         //read only
         if (dojo.config.isDebug) {
@@ -156,7 +160,7 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
         return (itemCollections);
     },
 
-    getCurrentDataItemAttr: function(){
+    _getCurrentDataItemAttr: function(){
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "getCurrentDataItemAttr");
         }
@@ -164,19 +168,24 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
     },
     
     //setters
-    setCurrentIndexAttr: function(index){
+    _setCurrentIndexAttr: function(index){
+        //setter method for setting the current index.
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "setCurrentIndexAttr");
         }
 
-      this._set("_currentIndex", index);
+        //do nothing if we're setting the same index as now
+        if(this.get("currentIndex") === index){return;}
 
-      this.set("currentCollectionName", this.initialCollection);
-      this.set("currentIndex", this.initialIndex);
-      this.set("currentDataItem", this.getItemByCollectionAndIndex(this.initialCollection, this.initialIndex));
+        this._set("_currentIndex", index);
+        dojo.publish(this.id + "/currentIndex", index);
+
+        //unsure if this will trigger a unforseen cascade of method calls. suggestions, anyone?
+        this.set("currentCollectionName", this.get("currentcollectionName"));
+        this.set("currentDataItem", this.getItemByCollectionAndIndex(this.get("currentCollectionName"), index));
     },
 
-    setCurrentCollectionNameAttr: function(collectionName){
+    _setCurrentCollectionNameAttr: function(collectionName){
         //setter method to set the current collection
         //collectionName : string. name of the item collection
         if (dojo.config.isDebug) {
@@ -184,28 +193,31 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
         }
 
         //do nothing if we're switching to the current collection
-        if (this.get("_currentCollectionName") === collectionName) {return;}
+        if (this.get("currentCollectionName") === collectionName) {return;}
 
         this._set("_currentCollectionName", collectionName);
+        dojo.publish(this.id + "/currentCollectionName", collectionName);
 
-        this.set("currentCollectionName", this.initialCollection);
-        this.set("currentIndex", this.initialIndex);
-        this.set("currentDataItem", this.getItemByCollectionAndIndex(this.initialCollection, this.initialIndex));
+        this.set("currentIndex", 0); //or is this 1 based?? dont remember.
+        this.set("currentDataItem", this.getItemByCollectionAndIndex(collectionName, 0));
 
 
     },
 
-    setCurrentDataItemAttr: function(dataItem){
+    _setCurrentDataItemAttr: function(dataItem){
+        //setter method to set the current dataItem.
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "setCurrentDataItemAttr");
         }
 
+        //if it's the same dataItem, return silently and dont do anything.
+        if(this.get("currentDataItem") === dataItem){return;}
+
         this._set("_currentDataItem", dataItem);
+        dojo.publish(this.id + "/currentDataItem", dataItem);
 
-        this.set("currentCollectionName", this.initialCollection);
-        this.set("currentIndex", this.initialIndex);
-        this.set("currentDataItem", this.getItemByCollectionAndIndex(this.initialCollection, this.initialIndex));
-
+        this.set("currentCollectionName", dataItem.collectionName);
+        this.set("currentIndex", dataItem.collectionIndex);
     },
 
     
@@ -311,16 +323,6 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
             index: index
         },
         {collectionName: this.get("currentCollectionName")}))[0];
-    },
-
-
-
-    onItemCollectionChange: function() {
-        if (dojo.config.isDebug) {
-            console.debug(this.id + ": " + "onItemCollectionChange");
-        }
-        //public event called when the image collection changes, 
-        //FIXME:unwired for now
     },
 
     //general setter methods

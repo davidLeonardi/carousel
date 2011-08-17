@@ -68,7 +68,6 @@ dojo.declare("dojox.image.CarouselPerspectiveView", [dijit._Widget, dijit._Templ
         this.connect(this, "onDataLoaded", "handleDataLoaded");
         this.connect(this, "onParentSizeChange", "handleParentResize");
 
-        setTimeout(dojo.hitch(this, "setNewCurrentDataItem"), 1000);
         dojo.subscribe(this.controllerWidget.id + "/currentDataItem", dojo.hitch(this, "handleDataItemUpdate"));
     },
 
@@ -77,9 +76,10 @@ dojo.declare("dojox.image.CarouselPerspectiveView", [dijit._Widget, dijit._Templ
          this.controllerWidget.set("currentDataItem", this.controllerWidget.getNextDataItemFromDataItem(this.get("loadedAsset"), true));
     },
     
-    handleDataItemUpdate: function(message){
-      console.warn("index update detected!");
-      console.debug(message);
+    handleDataItemUpdate: function(newDataItem){
+      console.warn("dataItem update detected!");
+      console.debug(newDataItem);
+
     },
 
     //getters
@@ -92,7 +92,7 @@ dojo.declare("dojox.image.CarouselPerspectiveView", [dijit._Widget, dijit._Templ
 
     getImageTranslationByZIndex: function(zIndex){
         //summary:
-        //          Compute the multiplication factor of the background image size relative to the main image
+        //          Compute the translation on the x/y axis of the asset based on the z-index
         var translate = [{x:0 , y:0},{x:200 , y:55},{x:400 , y:110},{x:600 , y:180},{x:800 , y:290},{x:1000 , y:420}];
         return translate[zIndex];
     },
@@ -117,6 +117,7 @@ dojo.declare("dojox.image.CarouselPerspectiveView", [dijit._Widget, dijit._Templ
         }
         //event handler when all the necessary assets have loaded
         this.prepareDom();
+        setTimeout(dojo.hitch(this, "setNewCurrentDataItem"), 1000);
     },
     
     handleParentResize: function(){
