@@ -91,7 +91,7 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
             var currentId = this._createIncrementalId();
             var collectionName = dojo.attr(currentNode, "data-carousel-collection-name") || this.controllerWidget.defaultCollection;
             var index = this._createIncrementalIndexByCollection(collectionName);
-            var collectionIndex = this._createIncrementalCollectionIndex();
+            var uniqueIndex = this._createIncrementalUniqueIndex();
             var allItemsDeferredList;
 
 
@@ -100,7 +100,7 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
                 itemNodeId: currentId,
                 collectionName: collectionName,
                 index: index,
-                collectionIndex: collectionIndex,
+                uniqueIndex: uniqueIndex,
                 itemSrc: this.getSourceForNode(assetNode),
                 itemSrcType: this.getSourceTypeForNode(assetNode),
                 itemType: assetNode.tagName.toLowerCase(),
@@ -142,7 +142,7 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
             itemNodeId: oArgs.id,
             collectionName: oArgs.collectionName,
             index: oArgs.index,
-            collectionIndex: oArgs.collectionIndex,
+            uniqueIndex: oArgs.uniqueIndex,
             itemSrc: oArgs.itemSrc,
             itemSrcType: oArgs.itemSrcType,
             itemType: oArgs.itemType,
@@ -191,12 +191,16 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "addToLoadQueue");
         }
+        console.debug(assetDataItem.index);
         //if we've already loaded the asset previously, return the already resolved deferred and stop.
-        if(assetDataItem.isLoaded === true){return assetDataItem.itemLoader;}
+        //if the asset is currently loading, return the loader instance and move on
+        if(assetDataItem.isLoaded == true || assetDataItem.isLoaded == "loading"){return assetDataItem.itemLoader;}
 
 		var currentQueueLength = this.getLengthOfObject(this.currentLoadProcesses);
-		
-        assetDataItem.itemLoader = new dojo.Deferred();
+
+		if(!assetDataItem.itemLoader){
+            assetDataItem.itemLoader = new dojo.Deferred();		    
+		}
 		
 		//add to the loader queue or add to the postponed queue?
 		if(currentQueueLength < this.maxConnections) {
@@ -206,6 +210,7 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
 			assetDataItem.itemLoader.then(dojo.hitch(this, "handleLoaderQueueItemDone", assetDataItem));
 
 			//load the asset now
+            console.debug(assetDataItem);
 			this.loadAsset(assetDataItem);
 		} else {
 			//add to the postponed queue
@@ -223,10 +228,13 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
 		//event handler for when an item in the loader queue completes.
 		//here we remove the loader object from the queue, and insert the first item we find in the prioritized postponed queue into the loader queue.
 		delete this.currentLoadProcesses[assetDataItem.id];
+        var postponedItem = {};
 		if(this.postponedLoadProcesses.length > 0){
 			console.warn("getting item from queue");
+
 			this.postponedLoadProcesses = this.prioritizeQueue(this.postponedLoadProcesses);
-			this.addToLoadQueue(this.postponedLoadProcesses.shift());
+            postponedItem = this.postponedLoadProcesses.shift();
+			this.addToLoadQueue(postponedItem.assetDataItem, postponedItem.isRequired);
 		}
 	},
 
@@ -254,10 +262,6 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "loading asset: " + assetDataItem.id);
         }
-        //if we've already loaded the asset previously, return the already resolved deferred and stop.
-        if(assetDataItem.isLoaded == true){return assetDataItem.itemLoader;}
-        //if there already is an asset loader instance, return it and move on
-        if(assetDataItem.itemLoader){return assetDataItem.itemLoade;}
 
         if(assetDataItem.itemType.toLowerCase() === "img"){
             var tempImage = new Image();
@@ -273,7 +277,6 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
                 delete tempImage;
                 //resolve the deferred
                 console.debug("loaded id: " + assetDataItem.id);
-                debugger;
                 assetDataItem.itemLoader.resolve("loaded");
                 
                 //If the item is lazy load, or has no src attribute, set the SRC attribute
@@ -302,6 +305,8 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
             
         //start loading the image now that we have something set up listening for the load event
         tempImage.src = assetDataItem.itemSrc;
+        assetDataItem.isLoaded = "loading";
+        this._putItemtoStore(assetDataItem);
         console.debug("setting source to: " + assetDataItem.itemSrc);
 
         } else {
@@ -360,17 +365,6 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
         }
     },
 
-    //begin new functions foo///
-    //fixme: not connected function, do we need this still?
-    updatePreloadRange: function(){
-        //check if we've got enough images loaded
-        this.PreloadAssetRange = this.controllerWidget.get(PreloadAssetRange);
-        this.PreloadAssetIndexesOfSet = this.controllerWidget.get(PreloadAssetIndexesOfCollection);
-        //determine what to load now
-        this._toLoadOrNotToLoad();
-    },
-    //foo
-
     _createIncrementalId: function() {
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "_createIncrementalId");
@@ -394,17 +388,17 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
         return this._incrementalIndexByCollection[collectionName].indexPos;
     },
 
-    _createIncrementalCollectionIndex: function() {
-        //create an incremental index for each collection, allowing us to deal with asyncness issues
+    _createIncrementalUniqueIndex: function() {
+        //create an incremental index for each item, allows us to uniqueley track items throughout all processes
         if (dojo.config.isDebug) {
-            console.debug(this.id + ": " + "_createIncrementalCollectionIndex");
+            console.debug(this.id + ": " + "_createIncrementalUniqueIndex");
         }
 
-        if (!this.collectionIndex) {
-            this.collectionIndex = 0;
+        if (!this.uniqueIndex) {
+            this.uniqueIndex = 0;
         }
-        this.collectionIndex = this.collectionIndex + 1;
-        return this.collectionIndex;
+        this.uniqueIndex = this.uniqueIndex + 1;
+        return this.uniqueIndex;
     },
 
     _addNewItemToStore: function(item) {
@@ -423,7 +417,7 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
 
     _putItemtoStore: function(item) {
         if (dojo.config.isDebug) {
-            console.debug(this.id + ": " + "_putItemtoStore");
+            console.debug(this.id + ": " + "_putItemtoStore: " + item.id);
         }
         //private function to update a single item to a store
         this.assetStore.put(item);

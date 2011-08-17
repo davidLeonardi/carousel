@@ -6,6 +6,7 @@ dojo.require("dijit._Widget");
 dojo.require("dijit._Templated");
 dojo.require("dojo.DeferredList");
 dojo.require("dojox.image.CarouselAssetLoader");
+dojo.require("dojox.image.CarouselQueue");
 dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated], {
     // summary:
     //		The controller class of the media carousel
@@ -45,7 +46,6 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
         //hitched function to change the active collection
         var widgetId = this.id;
 
-
         //instantiate the asset loader
         this.assetLoader = new dojox.image.CarouselAssetLoader({controllerWidget : this});
         this._supportingWidgets.push(this.assetLoader);
@@ -62,7 +62,7 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
             console.debug(this.id + ": " + "_setInitialState");
         }
         
-        this.initialCollection = this.initialCollection || this.getCollections()[0];
+        this.initialCollection = this.initialCollection || this.get("collections")[0];
         this.initialIndex = this.initialIndex || 1;
         this.set("currentCollectionName", this.initialCollection);
         this.set("currentIndex", this.initialIndex);
@@ -107,14 +107,8 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
         viewWidget.set("currentCollection", this.get("currentCollection"));
     },
 
-    //event handlers
+    //getters
     
-
-    //todo: create SETTER methods for:
-    // - index
-    // - collection
-    // - current data item
-
     getCurrentIndexAttr: function(){
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "getCurrentIndexAttr");
@@ -122,12 +116,64 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
         return this._currentIndex;
     },
 
+    getCurrentCollectionNameAttr: function(){
+        if (dojo.config.isDebug) {
+            console.debug(this.id + ": " + "getCurrentCollectionNameAttr");
+        }
+
+        return this._currentCollectionName;
+    },
+    
+    getCollectionsAttr: function() {
+        //returns an array of the corrent collection names
+        //read only
+        if (dojo.config.isDebug) {
+            console.debug(this.id + ": " + "getCollectionsAttr");
+        }
+        //public method to return [] of available collection names
+        var items = [];
+        dojo.forEach(this.assetLoader.assetStore.query({},
+        {
+            sort: [{
+                attribute: "index"
+            }]
+        }),
+        function(item) {
+            items.push(item.collectionName);
+        }
+        );
+        var j = 0;
+        var itemCollections = [];
+        var i;
+        for (i = 0; i < items.length; i++) {
+            itemCollections[j] = items[i];
+            j++;
+            if ((i > 0) && (items[i] === items[i - 1])) {
+                itemCollections.pop();
+                j--;
+            }
+        }
+        return (itemCollections);
+    },
+
+    getCurrentDataItemAttr: function(){
+        if (dojo.config.isDebug) {
+            console.debug(this.id + ": " + "getCurrentDataItemAttr");
+        }
+        return this._currentDataItem;
+    },
+    
+    //setters
     setCurrentIndexAttr: function(index){
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "setCurrentIndexAttr");
         }
 
       this._set("_currentIndex", index);
+
+      this.set("currentCollectionName", this.initialCollection);
+      this.set("currentIndex", this.initialIndex);
+      this.set("currentDataItem", this.getItemByCollectionAndIndex(this.initialCollection, this.initialIndex));
     },
 
     setCurrentCollectionNameAttr: function(collectionName){
@@ -141,30 +187,28 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
         if (this.get("_currentCollectionName") === collectionName) {return;}
 
         this._set("_currentCollectionName", collectionName);
+
+        this.set("currentCollectionName", this.initialCollection);
+        this.set("currentIndex", this.initialIndex);
+        this.set("currentDataItem", this.getItemByCollectionAndIndex(this.initialCollection, this.initialIndex));
+
+
     },
 
-    getCurrentCollectionNameAttr: function(){
-        if (dojo.config.isDebug) {
-            console.debug(this.id + ": " + "getCurrentCollectionNameAttr");
-        }
-
-        return this._currentCollectionName;
-    },
-    
     setCurrentDataItemAttr: function(dataItem){
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "setCurrentDataItemAttr");
         }
 
         this._set("_currentDataItem", dataItem);
+
+        this.set("currentCollectionName", this.initialCollection);
+        this.set("currentIndex", this.initialIndex);
+        this.set("currentDataItem", this.getItemByCollectionAndIndex(this.initialCollection, this.initialIndex));
+
     },
 
-    getCurrentDataItemAttr: function(){
-        if (dojo.config.isDebug) {
-            console.debug(this.id + ": " + "getCurrentDataItemAttr");
-        }
-        return this._currentDataItem;
-    },
+    
 
     //public methods relative to ITEMS
     getCurrentItems: function() {
@@ -221,14 +265,14 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
         //public method to get the next item by index from a specific dataitem
         //dataItem: data object of an asset
         //loop: boolean, indicates if indices should be looped together by considering the first item the next item after the last, and vice versa
-        var collectionIndex = dataItem.collectionIndex + 1;
+        var index = dataItem.index + 1;
         var collectionName = dataItem.collectionName;
         var nextItem;
 
-        nextItem = this.assetLoader.assetStore.query({collectionName: collectionName, collectionIndex: collectionIndex})[0];
+        nextItem = this.assetLoader.assetStore.query({collectionName: collectionName, index: index})[0];
 
         if(!nextItem && loop){
-            nextItem = this.assetLoader.assetStore.query({collectionName: collectionName, collectionIndex: 1})[0];
+            nextItem = this.assetLoader.assetStore.query({collectionName: collectionName, index: 1})[0];
         }
 
         return nextItem;
@@ -243,16 +287,16 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
         //dataItem: data object of an asset
         //loop: boolean, indicates if indices should be looped together by considering the first item the next item after the last, and vice versa
 
-        var collectionIndex = dataItem.collectionIndex - 1;
+        var index = dataItem.index - 1;
         var collectionName = dataItem.collectionName;
         var prevItem;
         var collectionLength;
 
-        prevItem = this.assetLoader.assetStore.query({collectionName: collectionName, collectionIndex: collectionIndex})[0];
+        prevItem = this.assetLoader.assetStore.query({collectionName: collectionName, index: index})[0];
 
         if(!prevItem && loop){
             collectionLength = this.assetLoader.assetStore.query().lenth;
-            nextItem = this.assetLoader.assetStore.query({collectionName: collectionName, collectionIndex: (collectionLength - 1)})[0];
+            nextItem = this.assetLoader.assetStore.query({collectionName: collectionName, index: (collectionLength - 1)})[0];
         }
 
         return prevItem;
@@ -270,37 +314,6 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
     },
 
 
-    //public methods relative to COLLECTIONS
-
-    getCollections: function() {
-        if (dojo.config.isDebug) {
-            console.debug(this.id + ": " + "getCollections");
-        }
-        //public method to return [] of available collection names
-        var items = [];
-        dojo.forEach(this.assetLoader.assetStore.query({},
-        {
-            sort: [{
-                attribute: "collectionIndex"
-            }]
-        }),
-        function(item) {
-            items.push(item.collectionName);
-        }
-        );
-        var j = 0;
-        var itemCollections = [];
-        var i;
-        for (i = 0; i < items.length; i++) {
-            itemCollections[j] = items[i];
-            j++;
-            if ((i > 0) && (items[i] === items[i - 1])) {
-                itemCollections.pop();
-                j--;
-            }
-        }
-        return (itemCollections);
-    },
 
     onItemCollectionChange: function() {
         if (dojo.config.isDebug) {

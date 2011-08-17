@@ -187,43 +187,5 @@ dojo.declare("dojox.image.CarouselSingleImageView", [dijit._Widget, dijit._Templ
             return;
         }
         this.showIndex(newIndex);
-    },
-
-    _resizeItemNode: function(container, h, w) {
-        if (dojo.config.isDebug) {
-            console.debug(this.id + ": " + "_resizeItemNode");
-            console.debug(this.id + ": " + "current image size is reported at: " + this._currentItemDataItem.itemWidth + " , " + this._currentItemDataItem.itemHeight);
-        }
-        var itemWHRatio = this._currentItemDataItem.itemWidth / this._currentItemDataItem.itemHeight;
-        if (itemWHRatio < w / h)
-        {
-            //width determines height
-            dojo.attr(container, 'width', w);
-            dojo.style(container, 'width', w + "px");
-            var newH = Math.ceil(w / itemWHRatio);
-            dojo.attr(container, 'height', newH);
-            dojo.style(container, 'height', newH + "px");
-            container.style.marginTop = (h - newH) / 2 + 'px';
-            container.style.marginLeft = 0;
-            if (dojo.config.isDebug) {
-                console.debug(this.id + ": " + container);
-                console.debug(this.id + ": " + "resized asset to: " + w + " / " + newH);
-            }
-        } else {
-            //height determines size
-            dojo.attr(container, 'height', h);
-            dojo.style(container, 'height', h + "px");
-            var newW = Math.ceil(h * itemWHRatio);
-            dojo.attr(container, 'width', newW);
-            dojo.style(container, 'width', newW + "px");
-            container.style.marginLeft = (w - newW) / 2 + 'px';
-            container.style.marginTop = 0;
-            if (dojo.config.isDebug) {
-                console.debug(this.id + ": " + container);
-                console.debug(this.id + ": " + "resized asset to: " + newW + " / " + h);
-            }
-        }
-        
-    }
-     
+    }     
 });
