@@ -90,7 +90,7 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
             var assetNode = dojo.query(">", currentNode)[0];
             var currentId = this._createIncrementalId();
             var collectionName = dojo.attr(currentNode, "data-carousel-collection-name") || this.controllerWidget.defaultCollection;
-            var index = this._createIncrementalIndexByCollection(collectionName);
+            var collectionIndex = this._createIncrementalIndexByCollection(collectionName);
             var uniqueIndex = this._createIncrementalUniqueIndex();
             var allItemsDeferredList;
 
@@ -99,7 +99,7 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
                 id: currentId,
                 itemNodeId: currentId,
                 collectionName: collectionName,
-                index: index,
+                collectionIndex: collectionIndex,
                 uniqueIndex: uniqueIndex,
                 itemSrc: this.getSourceForNode(assetNode),
                 itemSrcType: this.getSourceTypeForNode(assetNode),
@@ -125,7 +125,7 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
         }, this);
 
         //once we've completed processing the items, mark this task as complete so to let the parent process continue on
-        deferredItemLoader.resolve("IVELOADEDMYDATA!!!");
+        deferredItemLoader.resolve();
         dojo.empty(this.controllerWidget.containerNode);
         //return a resolved dojo.deferred instance
         return deferredItemLoader;
@@ -141,7 +141,7 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
             id: oArgs.id,
             itemNodeId: oArgs.id,
             collectionName: oArgs.collectionName,
-            index: oArgs.index,
+            collectionIndex: oArgs.collectionIndex,
             uniqueIndex: oArgs.uniqueIndex,
             itemSrc: oArgs.itemSrc,
             itemSrcType: oArgs.itemSrcType,
@@ -152,7 +152,7 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
             itemWidth: oArgs.itemWidth || null,
             itemHeight: oArgs.itemHeight || null,
             //async styff
-            itemIsLoaded: false,
+            isLoaded: false,
             itemLoader: null
         };
     },
@@ -273,7 +273,7 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
                 //fill in additional properties of the asset
                 assetDataItem.itemWidth = tempImage.width;
                 assetDataItem.itemHeight = tempImage.height;
-                assetDataItem.itemIsLoaded = true;
+                assetDataItem.isLoaded = true;
                 delete tempImage;
                 //resolve the deferred
                 console.debug("loaded id: " + assetDataItem.id);
@@ -312,7 +312,7 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
         } else {
             //video or who knows what.. treat it all the same for now
             assetDataItem.itemLoader = new dojo.Deferred();
-            assetDataItem.itemIsLoaded = true;
+            assetDataItem.isLoaded = true;
             assetDataItem.itemLoader.resolve("loaded");
             this._putItemtoStore(assetDataItem);
         }
@@ -382,7 +382,7 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
         }
         if (!this._incrementalIndexByCollection[collectionName]) {
             this._incrementalIndexByCollection[collectionName] = {};
-            this._incrementalIndexByCollection[collectionName].indexPos = 0;
+            this._incrementalIndexByCollection[collectionName].indexPos = -1;
         }
         this._incrementalIndexByCollection[collectionName].indexPos = this._incrementalIndexByCollection[collectionName].indexPos + 1;
         return this._incrementalIndexByCollection[collectionName].indexPos;

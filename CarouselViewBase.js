@@ -16,9 +16,6 @@ dojo.declare("dojox.image.CarouselViewBase", [], {
         }, this);
 
         combinedLoader = new dojo.DeferredList(assetLoaderProcessList);        
-        console.warn("****");
-        window.combinedLoader = combinedLoader;
-        window.singleLoaders = assetLoaderProcessList;
         return {combinedLoader: combinedLoader, singleLoaders: assetLoaderProcessList};
     },
     
@@ -190,14 +187,15 @@ dojo.declare("dojox.image.CarouselViewBase", [], {
           console.debug(this.id + ": " + "resized asset to: " + newW + " / " + oArgs.targetHeight);
       }
     },
-    
+
     getResizedAssetSizeByWidth: function(oArgs){
-      var assetWHRatio = oArgs.assetWidth / oArgs.assetHeight;
-      var newW = Math.ceil(oArgs.targetHeight * assetWHRatio);
-      
-      return {width: newW, height: oArgs.targetHeight};
+        //same as above, but only returns a w/h tuple
+        var assetWHRatio = oArgs.assetWidth / oArgs.assetHeight;
+        var newW = Math.ceil(oArgs.targetHeight * assetWHRatio);
+
+        return {width: newW, height: oArgs.targetHeight};
     },
-    
+
     resizeAssetNodeByTargetSize: function(oArgs) {
         //summary:  Resize an image or a video to a specific size while preserving the aspect ratio
         //          Centers the image based on a "best fit" approach for the specified target size
@@ -207,12 +205,14 @@ dojo.declare("dojox.image.CarouselViewBase", [], {
         //  oArgs.assetHeight = original asset height
         //  oArgs.targetWidth = target width size
         //  oArgs.targetHeight = target height size
-        
+
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "resizeAssetNodeByTargetSize");
             console.debug(this.id + ": " + "current image size is reported at: " + oArgs.assetWidth + " , " + oArgs.assetHeight);
         }
+
         var itemWHRatio = oArgs.assetWidth / oArgs.assetHeight;
+
         if (itemWHRatio < oArgs.targetWidth / oArgs.targetHeight)
         {
             //width determines height
@@ -241,7 +241,29 @@ dojo.declare("dojox.image.CarouselViewBase", [], {
                 console.debug(this.id + ": " + "resized asset to: " + newW + " / " + h);
             }
         }
-        
+    },
+    
+    getComputedZIndex: function(domNode){
+        //summary: returns an integer corresponding to the z-index that the domnode is really at.
+        var nodeZIndexValue = dojo.style(domNode, "zIndex");
+        var body = dojo.body();
+        if(nodeZIndexValue === "auto") {
+            while((domNode !== body) && (nodeZIndexValue === "auto")){
+                nodeZIndexValue = dojo.style(domNode, "zIndex");
+                if(nodeZIndexValue === "auto"){
+                    domNode = domNode.parentNode;    
+                }
+            }
+            
+            if(domNode === body){
+                return 1;
+            } else if(nodeZIndexValue !== "auto"){
+                return (nodeZIndexValue * 1) + 1;
+            }
+            
+        } else {
+            return (nodeZIndexValue * 1);
+        }
     }
     
 
