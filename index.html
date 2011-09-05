@@ -1,12 +1,25 @@
 <html>
 
 	<head>
-		<script src="/js/dojo/dojo.js" charcollection="utf-8" data-dojo-config="isDebug: true, parseOnLoad:true"></script>
+	    
+	    <link rel="stylesheet" type="text/css" href="http://ajax.googleapis.com/ajax/libs/dojo/1.6.1/dijit/themes/soria/soria.css">
+	    
+	    <style type="text/css" media="screen">
+	       .glassNode {
+           	overflow:hidden;
+           	position:absolute;
+           	visibility:hidden;
+           border: 5px solid white;
+           z-index: 5005;
+           }
+	    </style>
+	    
+		<script src="http://ajax.googleapis.com/ajax/libs/dojo/1.6.1/dojo/dojo.xd.js" data-dojo-config="isDebug: false, parseOnLoad:true, baseUrl: './', modulePaths: { mediavitamin: './mediavitamin' }" type="text/javascript"></script>
 		
 		<script type="text/javascript" charcollection="utf-8">
 			dojo.require("dojo.parser");
-			dojo.require("dojox.image.CarouselController");
-      dojo.require("dojox.image.CarouselPerspectiveView");
+			dojo.require("mediavitamin.CarouselController");
+            dojo.require("mediavitamin.CarouselPerspectiveView");
 		</script>
 		
 		<style type="text/css" media="screen">
@@ -25,181 +38,55 @@
 		</style>
 	</head>
 
-	<body>
-		<div style="width: 0px; height: 0px">
+	<body class="soria">
 
-
-
-			<div id="myCarousel" data-dojo-type="dojox.image.CarouselController" data-dojo-props="'class':'backgroundCarousel', initialcollection:'collection2'">
-
-				<!-- div class="carouselImage" data-carousel-collection-name="collection1">
-					<img lazyLoadSrc="1.jpg" alt="foo1" />
-					<div class="imageMetadata">
-						<span data-carousel-meta-type="title" class="metaType1">
-							foo
-						</span>
-						<span data-carousel-meta-type="description" class="metaType2">
-							bar
-						</span>
-					</div>
+        <div data-dojo-type="mediavitamin.CarouselController" data-dojo-props="id: 'controller1', initialCollection: 'set1', style: {display: 'none'}">
+			<div class="carouselImage" data-carousel-collection-name="set1">
+				<img src="/1.jpg" />
+				<div class="imageMetadata">
+					<span data-carousel-meta-type="testMetaData">Testing metadata 1</span>
 				</div>
-				<div class="carouselImage" data-carousel-collection-name="collection1">
-					<img lazyLoadSrc="2.jpg" alt="foo2" />
-					<div class="imageMetadata">
-						<span data-carousel-meta-type="title" class="metaType1">
-							foo2
-						</span>
-						<span data-carousel-meta-type="description" class="metaType2">
-							bar2
-						</span>
-					</div>
-				</div>
-				<div class="carouselImage" data-carousel-collection-name="collection1">
-					<img lazyLoadSrc="3.jpg" alt="foo3" />
-					<div class="imageMetadata">
-						<span data-carousel-meta-type="title" class="metaType1">
-							foo3
-						</span>
-						<span data-carousel-meta-type="description" class="metaType2">
-							bar3
-						</span>
-					</div>
-				</div -->
-				<div class="carouselImage" data-carousel-collection-name="collection2">
-					<img lazyLoadSrc="1.jpg" alt="foo1" />
-					<div class="imageMetadata">
-						<span data-carousel-meta-type="title" class="metaType1">
-							foo
-						</span>
-						<span data-carousel-meta-type="description" class="metaType2">
-							bar
-						</span>
-					</div>
-				</div>
-				<div class="carouselImage" data-carousel-collection-name="collection2">
-					<img lazyLoadSrc="2.jpg" alt="foo1" />
-					<div class="imageMetadata">
-						<span data-carousel-meta-type="title" class="metaType1">
-							foo
-						</span>
-						<span data-carousel-meta-type="description" class="metaType2">
-							bar
-						</span>
-					</div>
-				</div>
-				<div class="carouselImage" data-carousel-collection-name="collection2">
-					<img lazyLoadSrc="3.jpg" alt="foo1" />
-					<div class="imageMetadata">
-						<span data-carousel-meta-type="title" class="metaType1">
-							foo
-						</span>
-						<span data-carousel-meta-type="description" class="metaType2">
-							bar
-						</span>
-					</div>
-				</div>
-				<div class="carouselImage" data-carousel-collection-name="collection2">
-					<img lazyLoadSrc="4.jpg" alt="foo1" />
-					<div class="imageMetadata">
-						<span data-carousel-meta-type="title" class="metaType1">
-							foo
-						</span>
-						<span data-carousel-meta-type="description" class="metaType2">
-							bar
-						</span>
-					</div>
-				</div>
-				<div class="carouselImage" data-carousel-collection-name="collection2">
-					<img lazyLoadSrc="5.jpg" alt="foo2" />
-					<div class="imageMetadata">
-						<span data-carousel-meta-type="title" class="metaType1">
-							foo2
-						</span>
-						<span data-carousel-meta-type="description" class="metaType2">
-							bar2
-						</span>
-					</div>
-				</div>
-				<div class="carouselImage" data-carousel-collection-name="collection2">
-					<img lazyLoadSrc="6.jpg" alt="foo3" />
-					<div class="imageMetadata">
-						<span data-carousel-meta-type="title" class="metaType1">
-							foo3
-						</span>
-						<span data-carousel-meta-type="description" class="metaType2">
-							bar3
-						</span>
-					</div>
-					<div class="carouselImage" data-carousel-collection-name="collection2">
-  					<img lazyLoadSrc="7.jpg" alt="foo1" />
-  					<div class="imageMetadata">
-  						<span data-carousel-meta-type="title" class="metaType1">
-  							foo
-  						</span>
-  						<span data-carousel-meta-type="description" class="metaType2">
-  							bar
-  						</span>
-  					</div>
-  				</div>
-  				
-				</div>
-				<!-- div class="carouselImage" data-carousel-collection-name="collection3">
-					<img lazyLoadSrc="3.jpg" alt="foo1" />
-					<div class="imageMetadata">
-						<span data-carousel-meta-type="title" class="metaType1">
-							foo
-						</span>
-						<span data-carousel-meta-type="description" class="metaType2">
-							bar
-						</span>
-					</div>
-				</div>
-				<div class="carouselImage" data-carousel-collection-name="collection3">
-					<img lazyLoadSrc="1.jpg" alt="foo2" />
-					<div class="imageMetadata">
-						<span data-carousel-meta-type="title" class="metaType1">
-							foo2
-						</span>
-						<span data-carousel-meta-type="description" class="metaType2">
-							bar2
-						</span>
-					</div>
-				</div>
-				<div class="carouselImage" data-carousel-collection-name="collection3">
-					<img lazyLoadSrc="2.jpg" alt="foo3" />
-					<div class="imageMetadata">
-						<span data-carousel-meta-type="title" class="metaType1">
-							foo3
-						</span>
-						<span data-carousel-meta-type="description" class="metaType2">
-							bar3
-						</span>
-					</div>
-				</div -->
-				
 			</div>
-			
-			<div id="controls" style="z-index: 1000, position: fixed, bottom: 10px, left: 0px">
-
-				<h1 id="gotocollection1">Go to collection 1!<h1>
-				<h1 id="gotocollection2">Go to collection 2!<h1>
-				<h1 id="gotocollection3">Go to collection 3!<h1>					
-				<h2 id="shownext">Prev Image</h2>
-				<h2 id="showprev">Next Image</h2>				
-
-
-				<script type="text/javascript" charcollection="utf-8">
-					dojo.connect(dojo.byId("gotocollection1"), "onclick", null, function(){dijit.byId('myCarousel').applyImagecollection({collectionName:'collection1'})});
-					dojo.connect(dojo.byId("gotocollection2"), "onclick", null, function(){dijit.byId('myCarousel').applyImagecollection({collectionName:'collection2'})});
-					dojo.connect(dojo.byId("gotocollection3"), "onclick", null, function(){dijit.byId('myCarousel').applyImagecollection({collectionName:'collection3'})});
-					dojo.connect(dojo.byId("shownext"), "onclick", null, function(){dijit.byId('myCarousel').showPrev()});
-					dojo.connect(dojo.byId("showprev"), "onclick", null, function(){dijit.byId('myCarousel').showNext()});
-
-				</script>
-
+			<div class="carouselImage" data-carousel-collection-name="set1">
+				<img src="/2.jpg" />
+				<div class="imageMetadata">
+					<span data-carousel-meta-type="testMetaData">Testing metadata 2</span>
+                </div>
 			</div>
-			
+			<div class="carouselImage" data-carousel-collection-name="set1">
+				<img src="/3.jpg" />
+				<div class="imageMetadata">
+					<span data-carousel-meta-type="descriptionDe">Testing metadata 3</span>
+			    </div>
+			</div>
+			<div class="carouselImage" data-carousel-collection-name="set2">
+				<img src="/4.jpg" />
+				<div class="imageMetadata">
+					<span data-carousel-meta-type="testMetaData">Testing metadata 4</span>
+				</div>
+			</div>
+			<div class="carouselImage" data-carousel-collection-name="set2">
+				<img src="/5.jpg" />
+				<div class="imageMetadata">
+					<span data-carousel-meta-type="testMetaData">Testing metadata 5</span>
+                </div>
+			</div>
+			<div class="carouselImage" data-carousel-collection-name="set2">
+				<img src="/6.jpg" />
+				<div class="imageMetadata">
+					<span data-carousel-meta-type="testMetaData">Testing metadata 6</span>
+			    </div>
+			</div>
+			<div class="carouselImage" data-carousel-collection-name="set3">
+				<img src="/7.jpg" />
+				<div class="imageMetadata">
+					<span data-carousel-meta-type="testMetaData">Testing metadata 7</span>
+			    </div>
+			</div>
 		</div>
-		      <div id="myView" data-dojo-type="dojox.image.CarouselPerspectiveView" data-dojo-props="controllerWidget:'myCarousel'"></div>
+		<div data-dojo-type="mediavitamin.CarouselPerspectiveView" data-dojo-props="controllerWidget: 'controller1', style: {width: '650px', height: '400px'}">
+		</div>
+
+
 	</body>
 <html>
