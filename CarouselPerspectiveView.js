@@ -1,4 +1,4 @@
-dojo.provide("dojox.image.CarouselPerspectiveView");
+dojo.provide("mediavitamin.CarouselPerspectiveView");
 
 dojo.require("dojo.fx");
 dojo.require("dojox.fx");
@@ -6,12 +6,13 @@ dojo.require("dijit._Widget");
 dojo.require("dijit._Templated");
 dojo.require("dojo.string");
 dojo.require("dojox.av.FLVideo");
-dojo.require("dojox.image.CarouselController");
-dojo.require("dojox.image.CarouselAssetLoader");
-dojo.require("dojox.image.CarouselViewBase");
-dojo.require("dojox.image.CarouselParentMonitor");
+dojo.require("mediavitamin.ImageMagnifier");
+dojo.require("mediavitamin.CarouselController");
+dojo.require("mediavitamin.CarouselAssetLoader");
+dojo.require("mediavitamin.CarouselViewBase");
+dojo.require("mediavitamin.CarouselParentMonitor");
 
-dojo.declare("dojox.image.CarouselPerspectiveView", [dijit._Widget, dijit._Templated, dojox.image.CarouselViewBase, dojox.image.CarouselParentMonitor], {
+dojo.declare("mediavitamin.CarouselPerspectiveView", [dijit._Widget, dijit._Templated, mediavitamin.CarouselViewBase, mediavitamin.CarouselParentMonitor], {
 
     //how many images in its range should this image preload
     preloadAssetRange: 0,
@@ -21,11 +22,11 @@ dojo.declare("dojox.image.CarouselPerspectiveView", [dijit._Widget, dijit._Templ
     //fixme: would be nice to introduce positive-negative
     maxAmountOfItemsShown: 4,
 
-    templateString: dojo.cache("dojox.image", "resources/CarouselPerspectiveView.html"),
+    templateString: dojo.cache("mediavitamin", "resources/CarouselPerspectiveView.html"),
 
     constructor: function(oArgs){
         if (dojo.config.isDebug) {
-            console.debug("Constructor invoked for dojox.image.CarouselPerspectiveView");
+            console.debug("Constructor invoked for mediavitamin.CarouselPerspectiveView");
         }
 
         //list of items that are going to be shown
@@ -42,11 +43,15 @@ dojo.declare("dojox.image.CarouselPerspectiveView", [dijit._Widget, dijit._Templ
         }
         //fire the inheritance chain, particularly the parent node monitor and the asset loader 
         this.inherited(arguments);
-
-//        dojo.setSelectable(this.domNode);
-
+        dojo.setSelectable(this.domNode);
         var assetLoadList;
         var requiredLoader;
+
+        //set a private variable to the current parent node
+        this._parentNode = this.domNode;
+        //Monitor the parent domnode's size.         
+        this._startMonitoringParentNode();
+
 
         //set the instance of the controller widget
         this.controllerWidget = dijit.byId(this.controllerWidget);
@@ -60,16 +65,19 @@ dojo.declare("dojox.image.CarouselPerspectiveView", [dijit._Widget, dijit._Templ
 
         this.parentZIndex = this.getComputedZIndex(this.domNode);
 
-        this.connect(this, "onDataLoaded", "handleDataLoaded");
         this.connect(this, "onParentSizeChange", "handleParentResize");
+        this.connect(this.domNode, "onclick", "gotoNextItem");
 
         this.subscribe(this.controllerWidget.id + "/currentDataItem", dojo.hitch(this, "handleDataItemUpdate"));
 
     },
 
     //event handlers
+    gotoNextItem: function(){
+         this.controllerWidget.set("currentDataItem", this.controllerWidget.getNextDataItemFromDataItem(this.controllerWidget.get("currentDataItem"), true));
+    },
+
     handleDataItemUpdate: function(newDataItem){
-      console.debug("dataItem update detected!");
       this.prepareNewState();
     },
 
@@ -85,6 +93,7 @@ dojo.declare("dojox.image.CarouselPerspectiveView", [dijit._Widget, dijit._Templ
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "handleParentResize");
         }
+        this.prepareNewState();
     },
 
     prepareNewState: function(){
@@ -100,7 +109,6 @@ dojo.declare("dojox.image.CarouselPerspectiveView", [dijit._Widget, dijit._Templ
             dojo.forEach(this.shownItems, function(item){
                 this.oldShownItems.push({assetUniqueIndex: item.assetUniqueIndex, virtualZIndex: item.virtualZIndex, dataItem: item.dataItem, instance: item.instance});
             }, this); 
-            console.debug("updated old items");
         }
         //compute the items that will be shown.
         this.shownItems = this.computeAssetsToShow(this.get("loadedAsset"));
@@ -213,7 +221,7 @@ dojo.declare("dojox.image.CarouselPerspectiveView", [dijit._Widget, dijit._Templ
                 //create a domNode we can "widgetify"
                 var targetNode = dojo.create("img", {}, this.nodeCache, "last");
                 //instantiate a child widget containing the representation of the asset
-                var imageRepresentation = new dojox.image.CarouselPerspectiveViewImageRepresentation(item, this);
+                var imageRepresentation = new mediavitamin.CarouselPerspectiveViewImageRepresentation({dataItem: assetDataItem, parentWidget: this}, targetNode);
                 imageRepresentation.startup();
                 //add it to our local registry
                 this._availableAssets[item.uniqueIndex] = {instance: imageRepresentation, dataItem: item};
@@ -257,7 +265,7 @@ dojo.declare("dojox.image.CarouselPerspectiveView", [dijit._Widget, dijit._Templ
             from, 
             to, 
             fromNodeCache, 
-            toNodeCache, 
+            destroy, 
             moveDirection;
 
         moveDirection = this.controllerWidget.get("moveDirection");
@@ -266,8 +274,7 @@ dojo.declare("dojox.image.CarouselPerspectiveView", [dijit._Widget, dijit._Templ
 
             if(oArgs.toBeRemoved){
                 //configure the animation for removal
-                alert("removing item with unique index of: " + oArgs.assetUniqueIndex);
-                toNodeCache = true;
+                destroy = true;
                 from = oArgs.virtualZIndex;
             } else {
                 //set the origin virtual z-index to the item below
@@ -280,11 +287,11 @@ dojo.declare("dojox.image.CarouselPerspectiveView", [dijit._Widget, dijit._Templ
                 from = oArgs.virtualZIndex;
             }
 
-        } else if (moveDirection === "downwards") {
-            console.debug("moving downwards");
+        } else if (moveDirection === "asddownwards") {
+            //FIXME: The direction determination method is broken, since when we go from last > first item it thinks we are going backwards, but from a GUI perspective this is totally wrong. Dunno wut to do.
             if(oArgs.toBeRemoved){
                 console.debug("removing item with unique index of: " + oArgs.assetUniqueIndex);
-                toNodeCache = true;
+                destroy = true;
                 from = oArgs.virtualZIndex;
             } else {
                 from = oArgs.virtualZIndex + 1;
@@ -296,7 +303,7 @@ dojo.declare("dojox.image.CarouselPerspectiveView", [dijit._Widget, dijit._Templ
                 from = this.shownItems.length - 1;
             }
 
-        } else if (moveDirection === "nowhere") {
+        } else if (moveDirection === "nowhere" || moveDirection === "downwards" ) {
             //we either are displaying the items for the first time or we are changing collections. 
             //get them all from the nodecache and show them as coming from the z-index above
             if(oArgs.virtualZIndex > 0){
@@ -311,15 +318,20 @@ dojo.declare("dojox.image.CarouselPerspectiveView", [dijit._Widget, dijit._Templ
 
         to = oArgs.virtualZIndex;
 
+        if(oArgs.toBeRemoved){
+            //configure the animation for removal
+            destroy = true;
+        }   
+
         transitionArguments = {
             from: from, 
             to: to,
             fromNodeCache: fromNodeCache,
-            toNodeCache: toNodeCache
+            destroy: destroy
         };
 
         dojo.style(oArgs.instance.domNode, {position: "absolute"});
-        dojo.style(oArgs.instance.domNode, {zIndex: this.parentZIndex + oArgs.virtualZIndex});
+        dojo.style(oArgs.instance.domNode, {zIndex: (this.parentZIndex || this.getComputedZIndex(this.domNode)) + oArgs.virtualZIndex});
         
         return oArgs.instance.transition(transitionArguments);
     },
@@ -371,9 +383,18 @@ dojo.declare("dojox.image.CarouselPerspectiveView", [dijit._Widget, dijit._Templ
     getImageTranslationByZIndex: function(index){
         //summary:
         //          Compute the translation on the x/y axis of the asset based on the z-index
-        var translate = [{x:0 , y:0},{x:200 , y:55},{x:400 , y:110},{x:600 , y:180}];
-        translate = translate.reverse();
-        return translate[index];
+        //          Array describes the frontmost element as [0].
+        var allItemsCount = this.controllerWidget.getCurrentItems().length;
+        index = index + 1;
+        index = allItemsCount - index;
+        var translate = [{x:300 , y:76},{x:189 , y:96},{x:90 , y:116}];
+        if(index > -1){
+            return translate[index];            
+        } else {
+            //fixme: tie to getImageTranslationForTopExit perhaps?
+            return {x:300 , y:76};
+        }
+
     },
     
     getImageTranslationForTopExit: function(){
@@ -385,7 +406,7 @@ dojo.declare("dojox.image.CarouselPerspectiveView", [dijit._Widget, dijit._Templ
     },
 
     getOpacityByZIndex: function(index){
-        var opacity = [1, 0.8, 0.6, 0.4];
+        var opacity = [1, 0.8, 0.6];
         opacity = opacity.reverse();
         return opacity[index];
     },
@@ -398,54 +419,51 @@ dojo.declare("dojox.image.CarouselPerspectiveView", [dijit._Widget, dijit._Templ
         return 0;
     },
     
-
     //events
     onDataLoaded: function(){
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "onDataLoaded");
         }
       //public event when data loads
+      this.handleDataLoaded();
     }
     
 
 
 });
 
-dojo.declare("dojox.image.CarouselPerspectiveViewImageRepresentation", [dijit._Widget, dijit._Templated], {
-    
-    templateString: "<img src='${imageSource}'></img>",
+dojo.declare("mediavitamin.CarouselPerspectiveViewImageRepresentation", [dijit._Widget], {
     
     //duration of animations
-    animationDuration: 300,
+    animationDuration: 600,
     
-    constructor: function(dataItem, parentWidget){
-        //oArgs: {}
-        //  assetNode: data Item from an asset
+    constructor: function(oArgs){
+        //oArgs: {dataItem: assetDataItem, parentWidget: this}
         if (dojo.config.isDebug) {
-            console.debug("instantiated image for: "+ dataItem.itemSrc);
+            console.debug("instantiated image for: "+ oArgs.dataItem.itemSrc);
         }
-        this.imageSource = dataItem.itemSrc;
-        this.parentWidget = parentWidget;
-        this.dataItem = dataItem;
-    
+        this.imageSource = oArgs.dataItem.itemSrc;
+        this.parentWidget = oArgs.parentWidget;
+        this.dataItem = oArgs.dataItem;
+        this._supportingWidgets = [];
     },
     
     startup: function(){
-        this.inherited(arguments);
-        dojo.connect(this.domNode, "onclick", this, "activateThisItem");
+        this.domNode = dojo.create("img", {src: this.imageSource}, this.domNode, "replace");
     },
 
-    activateThisItem: function(){
-         this.parentWidget.controllerWidget.set("currentDataItem", this.dataItem);
-    },
-
-    moveToNodeCache: function(domNode){
+    destroy: function(){
         //helper method to move a domnode to the node cache
         if (dojo.config.isDebug) {
-            console.debug(this.id + ": " + "moveToNodeCache");
-        }
-        dojo.place(domNode, this.parentWidget.nodeCache, "last");
-        console.debug("moved to nodecache");
+            console.debug(this.id + ": " + "destroy");
+        } 
+        //remove it from the parent widget
+        delete this.parentWidget._availableAssets[this.dataItem.uniqueIndex];
+        //and kill it off
+        dojo.forEach(this._supportingWidgets, function(supportingWidget){
+            supportingWidget.destroyRecursive();
+        });
+        this.inherited(arguments);
     },
     
     moveToContainerNode: function(domNode, position){
@@ -469,84 +487,114 @@ dojo.declare("dojox.image.CarouselPerspectiveViewImageRepresentation", [dijit._W
         //          from: integer, origin z-index
         //          to: integer, destination z-index
         //          fromNodeCache: boolean, indicates if a node is to be retrieved from the nodecache
-        //          toNodeCache: boolean, indicates if a node is to be moved to the nodecache
+        //          destroy: boolean, indicates if this widget should be destroyed on end of a transition
 
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "transition");
         }
 
-        var animation, leftParams, topParams, opacityParams, widthParams, heightParams, onBeginParams, onEndParams, nodeReferencePosition, that, originSize, targetSize;
+        var animation, rightParams, topParams, opacityParams, widthParams, heightParams, onBeginParams, onEndParams, nodeReferencePosition, that, originSize, targetSize;
 
         that = this;
 
         originSize = this.parentWidget.getResizedAssetSizeByWidth({
             node: this.domNode, 
-            assetWidth: this.dataItem.itemWidth, 
-            assetHeight: this.dataItem.itemHeight, 
-            targetHeight: this.parentWidget.parentMarginBox.h * this.parentWidget.getImageScaleByZIndex(oArgs.from)
+            assetWidth: Math.round(this.dataItem.itemWidth),
+            assetHeight: Math.round(this.dataItem.itemHeight),
+            targetHeight: Math.round(this.parentWidget.parentMarginBox.h * this.parentWidget.getImageScaleByZIndex(oArgs.from))
         });
 
         targetSize = this.parentWidget.getResizedAssetSizeByWidth({
             node: this.domNode, 
-            assetWidth: this.dataItem.itemWidth, 
-            assetHeight: this.dataItem.itemHeight, 
-            targetHeight: this.parentWidget.parentMarginBox.h * this.parentWidget.getImageScaleByZIndex(oArgs.to)
+            assetWidth: Math.round(this.dataItem.itemWidth),
+            assetHeight: Math.round(this.dataItem.itemHeight),
+            targetHeight: Math.round(this.parentWidget.parentMarginBox.h * this.parentWidget.getImageScaleByZIndex(oArgs.to))
         });
 
-        leftParams = {
-            start :this.parentWidget.getImageTranslationByZIndex(oArgs.from).x , 
-            end: this.parentWidget.getImageTranslationByZIndex(oArgs.to).x, 
+        rightParams = {
+            start: Math.round(this.parentWidget.getImageTranslationByZIndex(oArgs.from).x),
+            end: Math.round(this.parentWidget.getImageTranslationByZIndex(oArgs.to).x),
             units: "px"
         };
         
         topParams = {
-            start: this.parentWidget.getImageTranslationByZIndex(oArgs.from).y, 
-            end: this.parentWidget.getImageTranslationByZIndex(oArgs.to).y, 
+            start: Math.round(this.parentWidget.getImageTranslationByZIndex(oArgs.from).y),
+            end: Math.round(this.parentWidget.getImageTranslationByZIndex(oArgs.to).y),
             units: "px"
         };
         
         opacityParams = {
-            start: this.parentWidget.getOpacityByZIndex(oArgs.from), 
-            end: this.parentWidget.getOpacityByZIndex(oArgs.to)
+            start: this.parentWidget.getOpacityByZIndex(oArgs.from),
+            end: this.parentWidget.getOpacityByZIndex(oArgs.to) || 1
         };
         
         widthParams = {
-            start: originSize.width, 
-            end: targetSize.width, 
+            start: Math.round(originSize.width),
+            end: Math.round(targetSize.width),
             units: "px"
         };
         
         heightParams = {
-            start: originSize.height, 
-            end: targetSize.height, 
+            start: Math.round(originSize.height),
+            end: Math.round(targetSize.height),
             units: "px"
         };
         
-
         if(oArgs.fromNodeCache){
             if(oArgs.to === 0){
                 nodeReferencePosition = "first";
             } else {
                 nodeReferencePosition = "last";
             }
+            var that;
             onBeginParams = function(){
-                console.warn("onBegin");
-                that.moveToContainerNode(that.domNode, nodeReferencePosition);                
+                that.moveToContainerNode(that.domNode, nodeReferencePosition);
             };
         }
         
-        if (oArgs.toNodeCache){
+        if (oArgs.from === this.parentWidget.controllerWidget.getCurrentItems().length - 1){
             onEndParams = function(){
-                console.warn("onEnd");
-                that.moveToNodeCache(that.domNode);
+                dojo.forEach(that._supportingWidgets, function(supportingWidget){
+                    supportingWidget.destroyRecursive();
+                });
+
             };
         }
+        
+        if(oArgs.to === (this.parentWidget.controllerWidget.getCurrentItems().length - 1)){
+            //ENABLE MAGNIFYER
+            var that = this;
+            onEndParams = function(){
+                if(that._supportingWidgets[0]){
+                    //remove old magnifier image and instance
+                    dojo.forEach(that._supportingWidgets, function(widgetInstance){widgetInstance.destroyRecursive();})
+                    dojo.query(".magnifierContainer").forEach(function(node){dojo.destroy(node);});
+                }
 
+                var containerNode = dojo.create("div", {'class': 'magnifierContainer', style: {zIndex: 2500, right: rightParams.end + "px", top: topParams.end + "px", width: widthParams.end + "px", height: heightParams.end + "px", position: "absolute"}}, that.parentWidget.containerNode, "last");
+                var newNode = dojo.create("img", {style: {display: "none"}}, containerNode, "first");
+                dojo.setSelectable(containerNode);
+                dojo.setSelectable(newNode);
+
+                //dont instantiate the magnifier if we've already got one...
+                    that.connect(newNode, "onload", function(evt){
+                        dojo.attr(evt.target, "width", widthParams.end + "px");
+                        dojo.attr(evt.target, "height", heightParams.end + "px");
+                        dojo.attr(evt.target, {style: {position: "relative", left: "0px", top: "0px", display: "block"}});
+                        that._supportingWidgets.push(new mediavitamin.ImageMagnifier({ scale:3, glassSize:200 },evt.target));
+                        that.isMagnified = true;
+                    });
+                newNode.src = that.domNode.src;
+
+                
+            };
+        }
+        
         animation = dojo.animateProperty({
             node : this.domNode, 
             duration: this.animationDuration,
             properties: {
-                left: leftParams,
+                right: rightParams,
                 top: topParams,
                 opacity: opacityParams,
                 width: widthParams,
@@ -558,6 +606,12 @@ dojo.declare("dojox.image.CarouselPerspectiveViewImageRepresentation", [dijit._W
         
         return animation;
         
-    }
+    },
     
+    destroyRecursive: function(){
+        dojo.forEach(this._supportingWidgets, function(supportingWidget){
+            supportingWidget.destroyRecursive();
+        });
+        this.inherited(arguments);
+    }    
 });

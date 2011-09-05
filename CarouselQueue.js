@@ -1,32 +1,50 @@
-dojo.provide("dojox.image.CarouselQueue");
+dojo.provide("mediavitamin.CarouselQueue");
 
-dojo.declare("dojox.image.CarouselQueue", null, {
+dojo.declare("mediavitamin.CarouselQueue", null, {
     //summary: a pub/sub queue controller.
     
+    constructor: function(oArgs){
+        this.listeners = [];
+        this.queue = {};
+        this.controllerWidget = oArgs.controllerWidget;
+    },
+    
     addQueuesFromTopics: function(topics){
-        dojo.forEach(topics, function(topic){this.addQueue(topic)}, this);
+        dojo.forEach(topics, function(topic){this.addQueue(topic);}, this);
     },
     
     addQueue: function(topic) {
         //create an initial place for all pubsubs to go, even if there is nothing set up to listen/it is not yet set up	
-        var shorttopic = topic.replace(this.id + "_", "");
         if (dojo.config.isDebug) {
-            console.log("creating evt handler for: " + shorttopic);
+            console.log("creating evt handler for: " + topic);
         }
         var queueitem = [];
-        var that = this;
-        this.listeners[shorttopic] = dojo.subscribe(topic,
-        function(message) {
+        if(!this.queue[topic]){
+            this.queue[topic] = [];            
+        }
+
+        this.listeners[topic] = dojo.subscribe(topic, this, function(message){
             queueitem.push(message);
-            that.queue[shorttopic] = queueitem;
+            this.queue[topic].push(message);
             if (dojo.config.isDebug) {
-                console.log("i just came into the queue");
-                console.log(that.queue[shorttopic]);
+                console.warn("i just came into the queue");
+                console.warn(message);
+                console.log("queue now contains:");
+                console.log(this.queue[topic]);
             }
         });
+    },
+
+    _handleNewReadyMessage: function(message){
+        var queueitem = [];
+        queueitem.push(message);
+        this.queue[this.controllerWidget.id + "/ready"].push(message);
         if (dojo.config.isDebug) {
+            console.warn("i just came into the queue");
+            console.warn(message);
             console.log("queue now contains:");
-            console.log(this.queue);
+            console.log(this.queue[topic]);
+
         }
     },
 
@@ -38,9 +56,9 @@ dojo.declare("dojox.image.CarouselQueue", null, {
     _unsubscribeQueue: function(topic) {
         //unsubscribe the event handler from listening to the com channel
         if (dojo.config.isDebug) {
-            console.debug(this.id + ": " + "disconnecting handler.. queue contained:");
-            console.debug(this.id + ": " + this.queue);
-            console.debug(this.id + ": " + this.listeners[topic]);
+            console.debug("disconnecting handler.. queue contained:");
+            console.debug("queue: " + this.queue[topic]);
+            console.debug("listeners: " + this.listeners[topic]);
         }
         dojo.unsubscribe(this.listeners[topic]);
         this.queue[topic] = undefined;
@@ -61,7 +79,7 @@ dojo.declare("dojox.image.CarouselQueue", null, {
         }
 
         //do we have anything in the queue? if so, use the passed callback on it.
-        if (queueItems) {
+        if (queueItems[0]) {
             dojo.forEach(queueItems,
             function(queueItem) {
                 oArgs.callback.call(oArgs.scope, queueItem);

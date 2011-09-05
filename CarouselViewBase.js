@@ -1,6 +1,6 @@
-dojo.provide("dojox.image.CarouselViewBase");
+dojo.provide("mediavitamin.CarouselViewBase");
 
-dojo.declare("dojox.image.CarouselViewBase", [], {
+dojo.declare("mediavitamin.CarouselViewBase", [], {
     
     _loadAssets: function(assetList, isRequired){
         if (dojo.config.isDebug) {

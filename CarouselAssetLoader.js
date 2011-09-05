@@ -1,7 +1,7 @@
-dojo.provide("dojox.image.CarouselAssetLoader");
+dojo.provide("mediavitamin.CarouselAssetLoader");
 dojo.require("dojo.store.Memory");
 dojo.require("dojo.string");
-dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
+dojo.declare("mediavitamin.CarouselAssetLoader", [dijit._Widget], {
     /*        
     todo:
         split up the loading logic between population of the datastore with all the items and the generated metadata that require asset loading.
@@ -191,7 +191,6 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
         if (dojo.config.isDebug) {
             console.debug(this.id + ": " + "addToLoadQueue");
         }
-        console.debug(assetDataItem.index);
         //if we've already loaded the asset previously, return the already resolved deferred and stop.
         //if the asset is currently loading, return the loader instance and move on
         if(assetDataItem.isLoaded == true || assetDataItem.isLoaded == "loading"){return assetDataItem.itemLoader;}
@@ -210,7 +209,6 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
 			assetDataItem.itemLoader.then(dojo.hitch(this, "handleLoaderQueueItemDone", assetDataItem));
 
 			//load the asset now
-            console.debug(assetDataItem);
 			this.loadAsset(assetDataItem);
 		} else {
 			//add to the postponed queue
@@ -276,7 +274,10 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
                 assetDataItem.isLoaded = true;
                 delete tempImage;
                 //resolve the deferred
-                console.debug("loaded id: " + assetDataItem.id);
+                if (dojo.config.isDebug) {
+                    console.debug("loaded id: " + assetDataItem.id);
+                }
+
                 assetDataItem.itemLoader.resolve("loaded");
                 
                 //If the item is lazy load, or has no src attribute, set the SRC attribute
@@ -293,7 +294,7 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
                 console.error(evt);
                 assetDataItem.itemWidth = 320;
                 assetDataItem.itemHeight = 240;
-                assetDataItem.itemSrc = dojo.moduleUrl("dojox.image").path + "resources/images/404.png";
+                assetDataItem.itemSrc = dojo.moduleUrl("mediavitamin").path + "resources/images/404.png";
                 assetDataItem.itemLoader.resolve("notFound");
                 //If the item is lazy load, or has no src attribute, set the SRC attribute
                 if(dojo.attr(!assetDataItem.itemNode, "src")){
@@ -307,7 +308,6 @@ dojo.declare("dojox.image.CarouselAssetLoader", [dijit._Widget], {
         tempImage.src = assetDataItem.itemSrc;
         assetDataItem.isLoaded = "loading";
         this._putItemtoStore(assetDataItem);
-        console.debug("setting source to: " + assetDataItem.itemSrc);
 
         } else {
             //video or who knows what.. treat it all the same for now

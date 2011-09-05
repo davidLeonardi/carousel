@@ -1,18 +1,18 @@
-dojo.provide("dojox.image.CarouselController");
+dojo.provide("mediavitamin.CarouselController");
 
 dojo.require("dojo.fx");
 dojo.require("dojox.fx");
 dojo.require("dijit._Widget");
 dojo.require("dijit._Templated");
 dojo.require("dojo.DeferredList");
-dojo.require("dojox.image.CarouselAssetLoader");
-dojo.require("dojox.image.CarouselQueue");
-dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated], {
+dojo.require("mediavitamin.CarouselAssetLoader");
+dojo.require("mediavitamin.CarouselQueue");
+dojo.declare("mediavitamin.CarouselController", [dijit._Widget, dijit._Templated], {
     // summary:
     //		The controller class of the media carousel
 
     //our template path... move this to define() eventually.
-    templateString: dojo.cache("dojox.image", "resources/Carousel.html"),
+    templateString: dojo.cache("mediavitamin", "resources/Carousel.html"),
 
     //set with which to use as default one
     initialCollection: null,
@@ -40,6 +40,9 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
         if (this.get("started")) {
             return;
         }
+        this.queue = new mediavitamin.CarouselQueue({controllerWidget: this});
+        this.queue.addQueue(this.id + "/ready");
+
         //run inheritance chain
         this.inherited(arguments);
 
@@ -47,12 +50,14 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
         var widgetId = this.id;
 
         //instantiate the asset loader
-        this.assetLoader = new dojox.image.CarouselAssetLoader({controllerWidget : this});
+        this.assetLoader = new mediavitamin.CarouselAssetLoader({controllerWidget : this});
         this._supportingWidgets.push(this.assetLoader);
 
         this.loadData();
 
         this._setInitialState();
+        
+        dojo.publish(this.id + "/ready", [this.get("currentDataItem")]);
         
         this.set("started", true);
     },
@@ -104,7 +109,7 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
         }
 
         this.views.push(viewWidget);
-        viewWidget.set("currentIndex", this.get("currentCollectionIndex"));
+        viewWidget.set("currentCollectionIndex", this.get("currentCollectionIndex"));
         viewWidget.set("currentCollection", this.get("currentCollection"));
     },
 
@@ -184,7 +189,7 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
         }
         
         this.set("moveDirection", this._computeMoveDirection(collectionIndex));
-        this._set("_currentIndex", collectionIndex);
+        this._set("_currentCollectionIndex", collectionIndex);
         dojo.publish(this.id + "/currentCollectionIndex", [{collectionIndex: collectionIndex}]);
 
         //unsure if this will trigger a unforseen cascade of method calls. suggestions, anyone?
@@ -223,11 +228,10 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
         dojo.publish(this.id + "/currentDataItem", [{dataItem:dataItem}]);
 
         this._set("_currentCollectionName", dataItem.collectionName);
-        this._set("_currentIndex", dataItem.collectionIndex);
+        this._set("_currentCollectionIndex", dataItem.collectionIndex);
     },
 
     _setMoveDirectionAttr: function(status){
-        alert("move direction:" + status);
         this._set("_moveDirection", status);
     },
 
@@ -346,9 +350,9 @@ dojo.declare("dojox.image.CarouselController", [dijit._Widget, dijit._Templated]
         //return the direction in which the items are changing
         var movingDirection;
 
-        if(this.get("currentIndex") > uniqueIndex) {
+        if(this.get("currentCollectionIndex") > uniqueIndex) {
             movingDirection = "downwards";
-        } else if (this.get("currentIndex") < uniqueIndex) {
+        } else if (this.get("currentCollectionIndex") < uniqueIndex) {
             movingDirection = "upwards";
         } else {
             movingDirection = "nowhere";

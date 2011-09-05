@@ -1,8 +1,8 @@
-dojo.provide("dojox.image.CarouselParentMonitor");
+dojo.provide("mediavitamin.CarouselParentMonitor");
 
-dojo.declare("dojox.image.CarouselParentMonitor", [], {
+dojo.declare("mediavitamin.CarouselParentMonitor", [], {
     //Class intended to be used as mixin only. Do not use directly.
-    //Summary: Provide a mixin to a dojox.image.carousel widget that monitors the parent domNode and fires an event when the node's dimensions change
+    //Summary: Provide a mixin to a mediavitamin.carousel widget that monitors the parent domNode and fires an event when the node's dimensions change
 
     //Monitor parent domNode and detect size changes
     //todo: implement native dijit methods like resize and so to reduce performance hit if parent is a dijit widget which

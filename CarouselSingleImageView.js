@@ -1,4 +1,4 @@
-dojo.provide("dojox.image.CarouselSingleImageView");
+dojo.provide("mediavitamin.CarouselSingleImageView");
 
 dojo.require("dojo.fx");
 dojo.require("dojox.fx");
@@ -7,11 +7,11 @@ dojo.require("dijit._Templated");
 dojo.require("dojo.string");
 dojo.require("dojo.DeferredList");
 dojo.require("dojox.av.FLVideo");
-dojo.require("dojox.image.CarouselController");
-dojo.require("dojox.image.CarouselAssetLoader");
-dojo.require("dojox.image.CarouselViewBase");
+dojo.require("mediavitamin.CarouselController");
+dojo.require("mediavitamin.CarouselAssetLoader");
+dojo.require("mediavitamin.CarouselViewBase");
 
-dojo.declare("dojox.image.CarouselSingleImageView", [dijit._Widget, dijit._Templated], {
+dojo.declare("mediavitamin.CarouselSingleImageView", [dijit._Widget, dijit._Templated], {
     
     //how many images in its range should this image preload
     preloadAssetRange: 3,
